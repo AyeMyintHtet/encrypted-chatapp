@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTheme } from "@/context/ThemeContext";
+import { useDebounce } from "@/hooks/useDebounce";
 import type { Profile } from "@/lib/types";
 
 interface SearchUsersProps {
@@ -21,12 +22,11 @@ export default function SearchUsers({ currentUserId }: SearchUsersProps) {
   const [sentRequests, setSentRequests] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  /** Search profiles by username (case-insensitive partial match) */
-  const handleSearch = useCallback(
-    async (searchQuery: string) => {
-      setQuery(searchQuery);
-      setMessage(null);
+  const debouncedQuery = useDebounce(query, 500);
 
+  /** Search profiles by username (case-insensitive partial match) */
+  const performSearch = useCallback(
+    async (searchQuery: string) => {
       if (searchQuery.trim().length < 2) {
         setResults([]);
         return;
@@ -49,6 +49,20 @@ export default function SearchUsers({ currentUserId }: SearchUsersProps) {
     },
     [currentUserId, supabase]
   );
+
+  // Trigger search when debounced query changes
+  useEffect(() => {
+    performSearch(debouncedQuery);
+  }, [debouncedQuery, performSearch]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setQuery(val);
+    setMessage(null);
+    if (val.trim().length < 2) {
+      setResults([]);
+    }
+  };
 
   /** Send a connection request to a user */
   const handleConnect = async (receiverId: string) => {
@@ -102,7 +116,7 @@ export default function SearchUsers({ currentUserId }: SearchUsersProps) {
         <input
           type="text"
           value={query}
-          onChange={(e) => handleSearch(e.target.value)}
+          onChange={handleInputChange}
           placeholder="Search by username..."
           className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#09637E]/50 focus:border-[#09637E]/50 transition-all"
           style={{ background: isDark ? "rgba(255,255,255,0.05)" : "#F9F8F6", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #D9CFC7", color: isDark ? "#fff" : "#1a1a1a" }}
