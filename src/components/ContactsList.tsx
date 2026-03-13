@@ -89,6 +89,18 @@ export default function ContactsList({ currentUserId, presenceMap }: ContactsLis
           fetchContacts();
         }
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "connections",
+        },
+        () => {
+          // Re-fetch when any connection is deleted (e.g., peer cleared contacts)
+          fetchContacts();
+        }
+      )
       .subscribe();
 
     return () => {

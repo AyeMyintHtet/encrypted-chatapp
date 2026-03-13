@@ -31,11 +31,22 @@ export default function DashboardPage() {
         return;
       }
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", user.id)
         .single();
+
+      // 406 = session invalid/expired — sign out, clear cookies, redirect to login
+      if (error && (error.code === "406" || error.message?.includes("406"))) {
+        await supabase.auth.signOut();
+        // Clear all Supabase auth cookies to fully reset session
+        document.cookie.split(";").forEach((c) => {
+          document.cookie = c.trim().split("=")[0] + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+        });
+        router.push("/login");
+        return;
+      }
 
       if (data) setProfile(data);
       setLoading(false);
@@ -85,7 +96,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
       {/* Ambient background glow */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-violet-600/10 rounded-full blur-[120px]" />
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-[#09637E]/10 rounded-full blur-[120px]" />
         <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-cyan-600/10 rounded-full blur-[120px]" />
       </div>
 

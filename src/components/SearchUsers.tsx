@@ -87,7 +87,7 @@ export default function SearchUsers({ currentUserId }: SearchUsersProps) {
   return (
     <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6">
       <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-        <svg className="w-5 h-5 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className="w-5 h-5 text-[#09637E]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
         Find People
@@ -100,7 +100,7 @@ export default function SearchUsers({ currentUserId }: SearchUsersProps) {
           value={query}
           onChange={(e) => handleSearch(e.target.value)}
           placeholder="Search by username..."
-          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 transition-all"
+          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#09637E]/50 focus:border-[#09637E]/50 transition-all"
         />
         {searching && (
           <div className="absolute right-4 top-1/2 -translate-y-1/2">
@@ -146,7 +146,7 @@ export default function SearchUsers({ currentUserId }: SearchUsersProps) {
                 className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                   sentRequests.has(user.id)
                     ? "bg-white/10 text-gray-400 cursor-not-allowed"
-                    : "bg-violet-600 hover:bg-violet-500 text-white shadow-lg shadow-violet-500/25"
+                    : "bg-[#09637E] hover:bg-[#088395] text-white shadow-lg shadow-[#09637E]/25"
                 }`}
               >
                 {sentRequests.has(user.id) ? "Sent" : "Connect"}

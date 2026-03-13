@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Profile } from "@/lib/types";
 
@@ -24,6 +24,9 @@ export default function PendingRequests({ currentUserId }: PendingRequestsProps)
 
   const [requests, setRequests] = useState<PendingRequest[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Track previous count to detect genuinely new requests and play sound
+  const prevCountRef = useRef<number>(0);
 
   /** Fetch pending requests with requester profile data */
   const fetchRequests = async () => {
@@ -53,7 +56,21 @@ export default function PendingRequests({ currentUserId }: PendingRequestsProps)
       profile: profiles?.find((p) => p.id === conn.requester_id) as Profile,
     }));
 
-    setRequests(merged.filter((r) => r.profile));
+    const filtered = merged.filter((r) => r.profile);
+
+    // Play notification sound only when new requests arrive (count increased)
+    if (filtered.length > prevCountRef.current && prevCountRef.current !== 0) {
+      try {
+        const audio = new Audio("/dragon-studio-notification-sound-effect-372475.mp3");
+        audio.volume = 0.5;
+        audio.play().catch(() => { /* Autoplay blocked — ignore silently */ });
+      } catch {
+        // Audio playback not supported — ignore
+      }
+    }
+    prevCountRef.current = filtered.length;
+
+    setRequests(filtered);
     setLoading(false);
   };
 
@@ -66,25 +83,12 @@ export default function PendingRequests({ currentUserId }: PendingRequestsProps)
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "*",
           schema: "public",
           table: "connections",
-          filter: `receiver_id=eq.${currentUserId}`,
         },
         () => {
-          // Re-fetch on new request to get full profile data
-          fetchRequests();
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "DELETE",
-          schema: "public",
-          table: "connections",
-          filter: `receiver_id=eq.${currentUserId}`,
-        },
-        () => {
+          // Re-fetch on any connection change (insert, update, delete)
           fetchRequests();
         }
       )
