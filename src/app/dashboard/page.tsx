@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { usePresence } from "@/hooks/usePresence";
+import { useTheme } from "@/context/ThemeContext";
 import SearchUsers from "@/components/SearchUsers";
 import PendingRequests from "@/components/PendingRequests";
 import ContactsList from "@/components/ContactsList";
+import ThemeToggle from "@/components/ThemeToggle";
 import type { Profile } from "@/lib/types";
 
 /**
@@ -70,9 +72,12 @@ export default function DashboardPage() {
     router.refresh();
   };
 
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: isDark ? "linear-gradient(to bottom right, #030712, #111827, #030712)" : "#F9F8F6" }}>
         <svg className="animate-spin h-8 w-8 text-[#09637E]" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -93,15 +98,15 @@ export default function DashboardPage() {
       myStatus === "idle" ? "Idle" : "Offline";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
+    <div className="min-h-screen" style={{ background: isDark ? "linear-gradient(to bottom right, #030712, #111827, #030712)" : "#F9F8F6" }}>
       {/* Ambient background glow */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-[#09637E]/10 rounded-full blur-[120px]" />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-cyan-600/10 rounded-full blur-[120px]" />
+        <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full blur-[120px]" style={{ background: isDark ? "rgba(9,99,126,0.1)" : "rgba(9,99,126,0.06)" }} />
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full blur-[120px]" style={{ background: isDark ? "rgba(6,182,212,0.1)" : "rgba(8,131,149,0.06)" }} />
       </div>
 
       {/* Top bar */}
-      <header className="relative z-10 border-b border-white/5">
+      <header className="relative z-10" style={{ borderBottom: isDark ? "1px solid rgba(255,255,255,0.05)" : "1px solid #D9CFC7" }}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-linear-to-br from-[#09637E] to-[#088395] rounded-xl flex items-center justify-center shadow-lg shadow-[#09637E]/25">
@@ -110,29 +115,34 @@ export default function DashboardPage() {
               </svg>
             </div>
             <div>
-              <h1 className="text-white font-bold text-lg">ChatApp</h1>
-              <p className="text-gray-500 text-xs">Encrypted P2P Messaging</p>
+              <h1 className="font-bold text-lg" style={{ color: isDark ? "#fff" : "#1a1a1a" }}>ChatApp</h1>
+              <p style={{ color: isDark ? "#6b7280" : "#C9B59C" }} className="text-xs">Encrypted P2P Messaging</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {/* User info with status */}
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-lg border border-white/10">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: isDark ? "rgba(255,255,255,0.05)" : "#EFE9E3", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #D9CFC7" }}>
               <div className="relative">
                 <div className="w-7 h-7 bg-linear-to-br from-[#09637E] to-[#088395] rounded-full flex items-center justify-center text-white font-semibold text-xs">
                   {profile.name.charAt(0).toUpperCase()}
                 </div>
-                {/* <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-gray-900 ${statusColor}`} /> */}
               </div>
               <div className="hidden sm:block">
-                <p className="text-white text-sm font-medium">{profile.name}</p>
-                {/* <p className="text-gray-500 text-xs">{statusLabel}</p> */}
+                <p className="text-sm font-medium" style={{ color: isDark ? "#fff" : "#1a1a1a" }}>{profile.name}</p>
               </div>
             </div>
 
+            <ThemeToggle />
+
             <button
               onClick={handleSignOut}
-              className="px-3 py-1.5 text-sm text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all cursor-pointer"
+              className="px-3 py-1.5 text-sm rounded-lg transition-all cursor-pointer"
+              style={{
+                color: isDark ? "#9ca3af" : "#C9B59C",
+                background: isDark ? "rgba(255,255,255,0.05)" : "#EFE9E3",
+                border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #D9CFC7",
+              }}
             >
               Sign Out
             </button>

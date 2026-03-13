@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useTheme } from "@/context/ThemeContext";
 import type { Profile } from "@/lib/types";
 
 interface PendingRequestsProps {
@@ -117,10 +118,13 @@ export default function PendingRequests({ currentUserId }: PendingRequestsProps)
     setRequests((prev) => prev.filter((r) => r.id !== connectionId));
   };
 
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+
   if (loading) {
     return (
-      <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6">
-        <h2 className="text-lg font-semibold text-white mb-4">Pending Requests</h2>
+      <div className="backdrop-blur-sm rounded-2xl p-6" style={{ background: isDark ? "rgba(255,255,255,0.05)" : "#EFE9E3", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #D9CFC7" }}>
+        <h2 className="text-lg font-semibold mb-4" style={{ color: isDark ? "#fff" : "#1a1a1a" }}>Pending Requests</h2>
         <div className="flex items-center justify-center py-4">
           <svg className="animate-spin h-5 w-5 text-[#09637E]" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
@@ -132,8 +136,8 @@ export default function PendingRequests({ currentUserId }: PendingRequestsProps)
   }
 
   return (
-    <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6">
-      <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+    <div className="backdrop-blur-sm rounded-2xl p-6" style={{ background: isDark ? "rgba(255,255,255,0.05)" : "#EFE9E3", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #D9CFC7" }}>
+      <h2 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: isDark ? "#fff" : "#1a1a1a" }}>
         <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
         </svg>
@@ -146,21 +150,22 @@ export default function PendingRequests({ currentUserId }: PendingRequestsProps)
       </h2>
 
       {requests.length === 0 ? (
-        <p className="text-gray-500 text-sm text-center py-4">No pending requests</p>
+        <p className="text-sm text-center py-4" style={{ color: isDark ? "#6b7280" : "#C9B59C" }}>No pending requests</p>
       ) : (
         <div className="space-y-2">
           {requests.map((req) => (
             <div
               key={req.id}
-              className="flex items-center justify-between p-3 bg-white/5 rounded-xl"
+              className="flex items-center justify-between p-3 rounded-xl"
+              style={{ background: isDark ? "rgba(255,255,255,0.05)" : "#F9F8F6" }}
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
                   {req.profile.name.charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <p className="text-white font-medium text-sm">{req.profile.name}</p>
-                  <p className="text-gray-400 text-xs">@{req.profile.username}</p>
+                  <p className="font-medium text-sm" style={{ color: isDark ? "#fff" : "#1a1a1a" }}>{req.profile.name}</p>
+                  <p className="text-xs" style={{ color: isDark ? "#9ca3af" : "#C9B59C" }}>@{req.profile.username}</p>
                 </div>
               </div>
               <div className="flex gap-2">
@@ -172,7 +177,8 @@ export default function PendingRequests({ currentUserId }: PendingRequestsProps)
                 </button>
                 <button
                   onClick={() => handleDecline(req.id)}
-                  className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-gray-300 text-xs font-semibold rounded-lg transition-all cursor-pointer"
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer"
+                  style={{ background: isDark ? "rgba(255,255,255,0.1)" : "#D9CFC7", color: isDark ? "#d1d5db" : "#1a1a1a" }}
                 >
                   Decline
                 </button>
