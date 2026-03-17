@@ -4,6 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import { useTheme } from "@/context/ThemeContext";
+import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
+import ThemeToggle from "@/components/ThemeToggle";
 
 /**
  * Multi-step signup form:
@@ -14,6 +17,8 @@ import Link from "next/link";
 export default function SignupPage() {
   const router = useRouter();
   const supabase = createClient();
+  const { theme } = useTheme();
+  const colors = THEME_CONFIG[theme as ThemeType];
 
   // Form state
   const [step, setStep] = useState(1);
@@ -112,16 +117,20 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-gray-950 via-gray-900 to-gray-950 p-4">
+    <div className="min-h-screen flex items-center justify-center p-4 transition-colors duration-300" style={{ background: colors.background }}>
       {/* Ambient background glow */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#09637E]/20 rounded-full blur-[100px]" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-cyan-600/20 rounded-full blur-[100px]" />
+        <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full blur-[100px]" style={{ background: colors.glow1 }} />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 rounded-full blur-[100px]" style={{ background: colors.glow2 }} />
+      </div>
+
+      <div className="absolute top-4 right-4 z-20">
+        <ThemeToggle />
       </div>
 
       <div className="relative w-full max-w-md">
         {/* Glass card */}
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-8">
+        <div className="backdrop-blur-xl rounded-2xl shadow-2xl p-8 border" style={{ background: colors.surface, borderColor: colors.border }}>
           {/* Header */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-14 h-14 bg-linear-to-br from-[#09637E] to-[#088395] rounded-xl mb-4 shadow-lg shadow-[#09637E]/25">
@@ -129,8 +138,8 @@ export default function SignupPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
               </svg>
             </div>
-            <h1 className="text-2xl font-bold text-white">Create Account</h1>
-            <p className="text-gray-400 mt-1 text-sm">
+            <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>Create Account</h1>
+            <p className="mt-1 text-sm" style={{ color: colors.textSecondary }}>
               {step === 1 ? "Enter your email to get started" : "Complete your profile"}
             </p>
           </div>
@@ -138,7 +147,7 @@ export default function SignupPage() {
           {/* Step indicator */}
           <div className="flex items-center gap-3 mb-6">
             <div className="flex-1 h-1 rounded-full bg-linear-to-r from-[#09637E] to-[#088395]" />
-            <div className={`flex-1 h-1 rounded-full transition-all duration-500 ${step === 2 ? "bg-linear-to-r from-[#088395] to-[#0a9396]" : "bg-white/10"}`} />
+            <div className={`flex-1 h-1 rounded-full transition-all duration-500 ${step === 2 ? "bg-linear-to-r from-[#088395] to-[#0a9396]" : ""}`} style={step === 1 ? { backgroundColor: colors.border } : {}} />
           </div>
 
           {/* Error display */}
@@ -152,7 +161,7 @@ export default function SignupPage() {
             /* Step 1: Email */
             <div className="space-y-4">
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1.5">
+                <label htmlFor="email" className="block text-sm font-medium mb-1.5" style={{ color: colors.textSecondary }}>
                   Email
                 </label>
                 <input
@@ -162,7 +171,8 @@ export default function SignupPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleEmailNext()}
                   placeholder="you@example.com"
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#09637E]/50 focus:border-[#09637E]/50 transition-all"
+                  className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#09637E]/50 focus:border-[#09637E]/50 transition-all placeholder:text-gray-500"
+                  style={{ background: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }}
                   autoFocus
                 />
               </div>
@@ -177,7 +187,7 @@ export default function SignupPage() {
             /* Step 2: Name, Username, Password */
             <form onSubmit={handleSignup} className="space-y-4">
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-1.5">
+                <label htmlFor="name" className="block text-sm font-medium mb-1.5" style={{ color: colors.textSecondary }}>
                   Full Name
                 </label>
                 <input
@@ -186,12 +196,13 @@ export default function SignupPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="John Doe"
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#09637E]/50 focus:border-[#09637E]/50 transition-all"
+                  className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#09637E]/50 focus:border-[#09637E]/50 transition-all placeholder:text-gray-500"
+                  style={{ background: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }}
                   autoFocus
                 />
               </div>
               <div>
-                <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-1.5">
+                <label htmlFor="username" className="block text-sm font-medium mb-1.5" style={{ color: colors.textSecondary }}>
                   Username
                 </label>
                 <input
@@ -200,11 +211,12 @@ export default function SignupPage() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="johndoe"
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#09637E]/50 focus:border-[#09637E]/50 transition-all"
+                  className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#09637E]/50 focus:border-[#09637E]/50 transition-all placeholder:text-gray-500"
+                  style={{ background: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }}
                 />
               </div>
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1.5">
+                <label htmlFor="password" className="block text-sm font-medium mb-1.5" style={{ color: colors.textSecondary }}>
                   Password
                 </label>
                 <input
@@ -213,7 +225,8 @@ export default function SignupPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#09637E]/50 focus:border-[#09637E]/50 transition-all"
+                  className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#09637E]/50 focus:border-[#09637E]/50 transition-all placeholder:text-gray-500"
+                  style={{ background: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }}
                 />
               </div>
 
@@ -221,7 +234,8 @@ export default function SignupPage() {
                 <button
                   type="button"
                   onClick={() => { setStep(1); setError(null); }}
-                  className="px-4 py-3 bg-white/5 border border-white/10 text-gray-300 rounded-xl hover:bg-white/10 transition-all cursor-pointer"
+                  className="px-4 py-3 border text-gray-300 rounded-xl transition-all cursor-pointer"
+                  style={{ background: colors.surface, borderColor: colors.border, color: colors.textSecondary }}
                 >
                   Back
                 </button>
@@ -245,7 +259,7 @@ export default function SignupPage() {
           )}
 
           {/* Footer link */}
-          <p className="mt-6 text-center text-sm text-gray-400">
+          <p className="mt-6 text-center text-sm" style={{ color: colors.textSecondary }}>
             Already have an account?{" "}
             <Link href="/login" className="text-[#088395] hover:text-[#09637E] font-medium transition-colors">
               Sign in

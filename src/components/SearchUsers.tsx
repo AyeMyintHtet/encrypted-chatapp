@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTheme } from "@/context/ThemeContext";
+import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import { useDebounce } from "@/hooks/useDebounce";
 import type { Profile } from "@/lib/types";
 
@@ -101,10 +102,11 @@ export default function SearchUsers({ currentUserId }: SearchUsersProps) {
 
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const colors = THEME_CONFIG[theme as ThemeType];
 
   return (
-    <div className="backdrop-blur-sm rounded-2xl p-6" style={{ background: isDark ? "rgba(255,255,255,0.05)" : "#EFE9E3", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #D9CFC7" }}>
-      <h2 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: isDark ? "#fff" : "#1a1a1a" }}>
+    <div className="backdrop-blur-sm rounded-2xl p-6" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+      <h2 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: colors.textPrimary }}>
         <svg className="w-5 h-5 text-[#09637E]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
@@ -119,7 +121,7 @@ export default function SearchUsers({ currentUserId }: SearchUsersProps) {
           onChange={handleInputChange}
           placeholder="Search by username..."
           className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#09637E]/50 focus:border-[#09637E]/50 transition-all"
-          style={{ background: isDark ? "rgba(255,255,255,0.05)" : "#F9F8F6", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #D9CFC7", color: isDark ? "#fff" : "#1a1a1a" }}
+          style={{ background: colors.inputBg, border: `1px solid ${colors.border}`, color: colors.textPrimary }}
         />
         {searching && (
           <div className="absolute right-4 top-1/2 -translate-y-1/2">
@@ -149,15 +151,15 @@ export default function SearchUsers({ currentUserId }: SearchUsersProps) {
             <div
               key={user.id}
               className="flex items-center justify-between p-3 rounded-xl transition-colors"
-              style={{ background: isDark ? "rgba(255,255,255,0.05)" : "#F9F8F6" }}
+              style={{ background: colors.surfaceHover }}
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-linear-to-br from-[#09637E] to-[#088395] rounded-full flex items-center justify-center text-white font-semibold text-sm">
                   {user.name.charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <p className="font-medium text-sm" style={{ color: isDark ? "#fff" : "#1a1a1a" }}>{user.name}</p>
-                  <p className="text-xs" style={{ color: isDark ? "#9ca3af" : "#C9B59C" }}>@{user.username}</p>
+                  <p className="font-medium text-sm" style={{ color: colors.textPrimary }}>{user.name}</p>
+                  <p className="text-xs" style={{ color: colors.textSecondary }}>@{user.username}</p>
                 </div>
               </div>
               <button
@@ -178,7 +180,7 @@ export default function SearchUsers({ currentUserId }: SearchUsersProps) {
 
       {/* Empty state */}
       {query.trim().length >= 2 && !searching && results.length === 0 && (
-        <p className="mt-4 text-sm text-center" style={{ color: isDark ? "#6b7280" : "#C9B59C" }}>No users found</p>
+        <p className="mt-4 text-sm text-center" style={{ color: colors.textTertiary }}>No users found</p>
       )}
     </div>
   );

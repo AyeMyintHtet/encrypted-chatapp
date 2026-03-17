@@ -9,6 +9,7 @@ import SearchUsers from "@/components/SearchUsers";
 import PendingRequests from "@/components/PendingRequests";
 import ContactsList from "@/components/ContactsList";
 import ThemeToggle from "@/components/ThemeToggle";
+import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import type { Profile } from "@/lib/types";
 
 /**
@@ -74,10 +75,11 @@ export default function DashboardPage() {
 
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const colors = THEME_CONFIG[theme as ThemeType];
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: isDark ? "linear-gradient(to bottom right, #030712, #111827, #030712)" : "#F9F8F6" }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: colors.background }}>
         <svg className="animate-spin h-8 w-8 text-[#09637E]" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -98,15 +100,15 @@ export default function DashboardPage() {
       myStatus === "idle" ? "Idle" : "Offline";
 
   return (
-    <div className="min-h-screen" style={{ background: isDark ? "linear-gradient(to bottom right, #030712, #111827, #030712)" : "#F9F8F6" }}>
+    <div className="min-h-screen" style={{ background: colors.background }}>
       {/* Ambient background glow */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full blur-[120px]" style={{ background: isDark ? "rgba(9,99,126,0.1)" : "rgba(9,99,126,0.06)" }} />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full blur-[120px]" style={{ background: isDark ? "rgba(6,182,212,0.1)" : "rgba(8,131,149,0.06)" }} />
+        <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full blur-[120px]" style={{ background: colors.glow1 }} />
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full blur-[120px]" style={{ background: colors.glow2 }} />
       </div>
 
       {/* Top bar */}
-      <header className="relative z-10" style={{ borderBottom: isDark ? "1px solid rgba(255,255,255,0.05)" : "1px solid #D9CFC7" }}>
+      <header className="relative z-10" style={{ borderBottom: `1px solid ${colors.borderMuted}` }}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-linear-to-br from-[#09637E] to-[#088395] rounded-xl flex items-center justify-center shadow-lg shadow-[#09637E]/25">
@@ -115,21 +117,21 @@ export default function DashboardPage() {
               </svg>
             </div>
             <div>
-              <h1 className="font-bold text-lg" style={{ color: isDark ? "#fff" : "#1a1a1a" }}>ChatApp</h1>
-              <p style={{ color: isDark ? "#6b7280" : "#C9B59C" }} className="text-xs">Encrypted P2P Messaging</p>
+              <h1 className="font-bold text-lg" style={{ color: colors.textPrimary }}>Kito</h1>
+              <p style={{ color: colors.textTertiary }} className="text-xs">Encrypted P2P Messaging</p>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
             {/* User info with status */}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: isDark ? "rgba(255,255,255,0.05)" : "#EFE9E3", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #D9CFC7" }}>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
               <div className="relative">
                 <div className="w-7 h-7 bg-linear-to-br from-[#09637E] to-[#088395] rounded-full flex items-center justify-center text-white font-semibold text-xs">
                   {profile.name.charAt(0).toUpperCase()}
                 </div>
               </div>
               <div className="hidden sm:block">
-                <p className="text-sm font-medium" style={{ color: isDark ? "#fff" : "#1a1a1a" }}>{profile.name}</p>
+                <p className="text-sm font-medium" style={{ color: colors.textPrimary }}>{profile.name}</p>
               </div>
             </div>
 
@@ -139,9 +141,9 @@ export default function DashboardPage() {
               onClick={handleSignOut}
               className="px-3 py-1.5 text-sm rounded-lg transition-all cursor-pointer"
               style={{
-                color: isDark ? "#9ca3af" : "#C9B59C",
-                background: isDark ? "rgba(255,255,255,0.05)" : "#EFE9E3",
-                border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #D9CFC7",
+                color: colors.textSecondary,
+                background: colors.surface,
+                border: `1px solid ${colors.border}`,
               }}
             >
               Sign Out

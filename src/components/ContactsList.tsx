@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useTheme } from "@/context/ThemeContext";
+import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import type { Profile, UserPresence } from "@/lib/types";
 
 interface ContactsListProps {
@@ -140,11 +141,12 @@ export default function ContactsList({ currentUserId, presenceMap }: ContactsLis
 
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const colors = THEME_CONFIG[theme as ThemeType];
 
   if (loading) {
     return (
-      <div className="backdrop-blur-sm rounded-2xl p-6" style={{ background: isDark ? "rgba(255,255,255,0.05)" : "#EFE9E3", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #D9CFC7" }}>
-        <h2 className="text-lg font-semibold mb-4" style={{ color: isDark ? "#fff" : "#1a1a1a" }}>Contacts</h2>
+      <div className="backdrop-blur-sm rounded-2xl p-6" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+        <h2 className="text-lg font-semibold mb-4" style={{ color: colors.textPrimary }}>Contacts</h2>
         <div className="flex items-center justify-center py-4">
           <svg className="animate-spin h-5 w-5 text-[#09637E]" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
@@ -156,9 +158,9 @@ export default function ContactsList({ currentUserId, presenceMap }: ContactsLis
   }
 
   return (
-    <div className="backdrop-blur-sm rounded-2xl p-6" style={{ background: isDark ? "rgba(255,255,255,0.05)" : "#EFE9E3", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #D9CFC7" }}>
+    <div className="backdrop-blur-sm rounded-2xl p-6" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
 
-      <h2 className="text-lg font-semibold mb-4 flex items-center justify-between" style={{ color: isDark ? "#fff" : "#1a1a1a" }}>
+      <h2 className="text-lg font-semibold mb-4 flex items-center justify-between" style={{ color: colors.textPrimary }}>
         <div className="flex items-center gap-2">
           <svg className="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -182,7 +184,7 @@ export default function ContactsList({ currentUserId, presenceMap }: ContactsLis
       </h2>
 
       {contacts.length === 0 ? (
-        <p className="text-sm text-center py-4" style={{ color: isDark ? "#6b7280" : "#C9B59C" }}>No connections yet. Search for users to connect!</p>
+        <p className="text-sm text-center py-4" style={{ color: colors.textTertiary }}>No connections yet. Search for users to connect!</p>
       ) : (
         <div className="space-y-2">
           {contacts.map((contact) => (
@@ -190,7 +192,7 @@ export default function ContactsList({ currentUserId, presenceMap }: ContactsLis
               key={contact.id}
               onClick={() => router.push(`/chat/${contact.username}`)}
               className="w-full flex items-center justify-between p-3 rounded-xl transition-all group cursor-pointer"
-              style={{ background: isDark ? "rgba(255,255,255,0.05)" : "#F9F8F6" }}
+              style={{ background: colors.surfaceHover }}
             >
               <div className="flex items-center gap-3">
                 {/* Avatar with status indicator */}
@@ -199,13 +201,14 @@ export default function ContactsList({ currentUserId, presenceMap }: ContactsLis
                     {contact.name.charAt(0).toUpperCase()}
                   </div>
                   <div
-                    className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 ${getStatusColor(contact.id)} ${isDark ? "border-[#111827]" : "border-[#F9F8F6]"}`}
+                    className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 ${getStatusColor(contact.id)}`}
+                    style={{ borderColor: colors.surfaceHover }}
                     title={getStatusLabel(contact.id)}
                   />
                 </div>
                 <div className="text-left">
-                  <p className="font-medium text-sm" style={{ color: isDark ? "#fff" : "#1a1a1a" }}>{contact.name}</p>
-                  <p className="text-xs" style={{ color: isDark ? "#9ca3af" : "#C9B59C" }}>@{contact.username}</p>
+                  <p className="font-medium text-sm" style={{ color: colors.textPrimary }}>{contact.name}</p>
+                  <p className="text-xs" style={{ color: colors.textSecondary }}>@{contact.username}</p>
                 </div>
               </div>
 

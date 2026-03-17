@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useLocalChat } from "@/hooks/useLocalChat";
 import { usePresence } from "@/hooks/usePresence";
 import { useTheme } from "@/context/ThemeContext";
+import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import type { Profile, ChatMessage, PresenceStatus } from "@/lib/types";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
@@ -180,10 +181,11 @@ export default function ChatPage() {
 
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const colors = THEME_CONFIG[theme as ThemeType];
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: isDark ? "linear-gradient(to bottom right, #030712, #111827, #030712)" : "#F9F8F6" }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: colors.background }}>
         <svg className="animate-spin h-8 w-8 text-[#09637E]" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -204,26 +206,26 @@ export default function ChatPage() {
       peerStatus === "idle" ? "Idle" : "Offline";
 
   return (
-    <div className="h-screen flex flex-col" style={{ background: isDark ? "#030712" : "#F9F8F6" }}>
+    <div className="h-screen flex flex-col" style={{ background: colors.backgroundSolid }}>
       {/* Ambient background glow */}
       {isDark && (
         <div className="fixed inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#09637E]/10 rounded-full blur-[100px]" />
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-cyan-600/10 rounded-full blur-[100px]" />
+          <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full blur-[100px]" style={{ background: colors.glow1 }} />
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 rounded-full blur-[100px]" style={{ background: colors.glow2 }} />
         </div>
       )}
 
       {/* Chat header */}
-      <header className="relative z-10 backdrop-blur-md" style={{ background: isDark ? "rgba(3,7,18,0.8)" : "rgba(239,233,227,0.8)", borderBottom: isDark ? "1px solid rgba(255,255,255,0.05)" : "1px solid #D9CFC7" }}>
+      <header className="relative z-10 backdrop-blur-md" style={{ background: isDark ? "rgba(3,7,18,0.8)" : "rgba(239,233,227,0.8)", borderBottom: `1px solid ${colors.borderMuted}` }}>
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Back button */}
             <button
               onClick={() => router.push("/dashboard")}
               className="p-2 rounded-lg transition-colors cursor-pointer"
-              style={{ background: isDark ? "rgba(255,255,255,0.05)" : "#D9CFC7" }}
+              style={{ background: colors.surface }}
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} style={{ color: isDark ? "#9ca3af" : "#1a1a1a" }}>
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} style={{ color: colors.textSecondary }}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
             </button>
@@ -233,13 +235,13 @@ export default function ChatPage() {
               <div className="w-10 h-10 bg-linear-to-br from-[#09637E] to-[#088395] rounded-full flex items-center justify-center text-white font-semibold text-sm">
                 {peerProfile.name.charAt(0).toUpperCase()}
               </div>
-              <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 ${statusColor}`} style={{ borderColor: isDark ? "#030712" : "#EFE9E3" }} />
+              <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 ${statusColor}`} style={{ borderColor: isDark ? colors.backgroundSolid : colors.surface }} />
             </div>
             <div>
-              <h1 className="font-semibold text-sm" style={{ color: isDark ? "#fff" : "#1a1a1a" }}>{peerProfile.name}</h1>
-              <p className="text-xs flex items-center gap-1" style={{ color: isDark ? "#9ca3af" : "#C9B59C" }}>
+              <h1 className="font-semibold text-sm" style={{ color: colors.textPrimary }}>{peerProfile.name}</h1>
+              <p className="text-xs flex items-center gap-1" style={{ color: colors.textTertiary }}>
                 @{peerProfile.username}
-                <span style={{ color: isDark ? "#4b5563" : "#D9CFC7" }}>·</span>
+                <span style={{ color: colors.borderMuted }}>·</span>
                 <span className={
                   peerStatus === "active" ? "text-emerald-400" :
                     peerStatus === "idle" ? "text-amber-400" : "text-gray-500"
@@ -263,7 +265,7 @@ export default function ChatPage() {
       </header>
 
       {/* Messages area */}
-      <main className="relative z-10 flex-1 overflow-y-auto" style={{ background: isDark ? "#111827" : "#EFE9E3" }}>
+      <main className="relative z-10 flex-1 overflow-y-auto" style={{ background: isDark ? "#111827" : colors.surface }}>
         <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center">
@@ -272,8 +274,8 @@ export default function ChatPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
               </div>
-              <p className="text-sm" style={{ color: isDark ? "#fff" : "#1a1a1a" }}>No messages yet</p>
-              <p className="text-xs mt-1" style={{ color: isDark ? "#9ca3af" : "#C9B59C" }}>Send a message to start the conversation</p>
+              <p className="text-sm" style={{ color: colors.textPrimary }}>No messages yet</p>
+              <p className="text-xs mt-1" style={{ color: colors.textTertiary }}>Send a message to start the conversation</p>
             </div>
           ) : (
             messages.map((msg) => {
@@ -288,10 +290,10 @@ export default function ChatPage() {
                       ? "bg-linear-to-r from-[#09637E] to-[#088395] text-white rounded-br-md"
                       : "rounded-bl-md"
                       }`}
-                    style={!isOwn ? { background: isDark ? "rgba(255,255,255,0.1)" : "#D9CFC7", color: isDark ? "#fff" : "#1a1a1a" } : {}}
+                    style={!isOwn ? { background: colors.surfaceHover, color: colors.textPrimary } : {}}
                   >
                     <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
-                    <p className={`text-[10px] mt-1 ${isOwn ? "text-white/60" : ""}`} style={!isOwn ? { color: isDark ? "rgba(255,255,255,0.6)" : "#8B7D6B" } : {}}>
+                    <p className={`text-[10px] mt-1 ${isOwn ? "text-white/60" : ""}`} style={!isOwn ? { color: colors.textSecondary } : {}}>
                       {formatTime(msg.timestamp)}
                     </p>
                   </div>
@@ -304,13 +306,13 @@ export default function ChatPage() {
       </main>
 
       {/* Message input */}
-      <footer className="relative z-10 backdrop-blur-md" style={{ background: isDark ? "rgba(3,7,18,0.8)" : "rgba(239,233,227,0.8)", borderTop: isDark ? "1px solid rgba(255,255,255,0.05)" : "1px solid #D9CFC7" }}>
+      <footer className="relative z-10 backdrop-blur-md" style={{ background: isDark ? "rgba(3,7,18,0.8)" : "rgba(239,233,227,0.8)", borderTop: `1px solid ${colors.borderMuted}` }}>
         <div className="max-w-4xl mx-auto px-4 py-4">
           {/* Offline banner — show when peer is not in this chat */}
           {isPeerOffline && (
-            <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: isDark ? "rgba(31,41,55,0.6)" : "#F2E8DF", border: isDark ? "1px solid rgba(255,255,255,0.05)" : "1px solid #D9CFC7" }}>
+            <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: colors.surface, border: `1px solid ${colors.borderMuted}` }}>
               <div className="w-2 h-2 bg-gray-500 rounded-full" />
-              <span className="text-xs" style={{ color: isDark ? "#9ca3af" : "#8B7D6B" }}>
+              <span className="text-xs" style={{ color: colors.textSecondary }}>
                 {peerProfile.name} is offline — messages will be delivered when they open the app.
               </span>
             </div>
@@ -324,7 +326,7 @@ export default function ChatPage() {
               placeholder={isPeerOffline ? `${peerProfile.name} is offline...` : "Type a message..."}
               disabled={isPeerOffline}
               className={`flex-1 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#09637E]/50 focus:border-[#09637E]/50 transition-all text-sm ${isPeerOffline ? "opacity-50 cursor-not-allowed" : ""}`}
-              style={{ background: isDark ? "rgba(255,255,255,0.05)" : "#F9F8F6", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #D9CFC7", color: isDark ? "#fff" : "#1a1a1a" }}
+              style={{ background: colors.inputBg, border: `1px solid ${colors.border}`, color: colors.textPrimary }}
               autoFocus
             />
             <button

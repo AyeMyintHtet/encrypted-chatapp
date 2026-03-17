@@ -4,6 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import { useTheme } from "@/context/ThemeContext";
+import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
+import ThemeToggle from "@/components/ThemeToggle";
 
 /**
  * Login page supporting both email and username login.
@@ -13,6 +16,9 @@ import Link from "next/link";
 export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+  const colors = THEME_CONFIG[theme as ThemeType];
 
   const [identifier, setIdentifier] = useState(""); // email or username
   const [password, setPassword] = useState("");
@@ -75,16 +81,20 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-gray-950 via-gray-900 to-gray-950 p-4">
+    <div className="min-h-screen flex items-center justify-center p-4 transition-colors duration-300" style={{ background: colors.background }}>
       {/* Ambient background glow */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#09637E]/20 rounded-full blur-[100px]" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-cyan-600/20 rounded-full blur-[100px]" />
+        <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full blur-[100px]" style={{ background: colors.glow1 }} />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 rounded-full blur-[100px]" style={{ background: colors.glow2 }} />
+      </div>
+
+      <div className="absolute top-4 right-4 z-20">
+        <ThemeToggle />
       </div>
 
       <div className="relative w-full max-w-md">
         {/* Glass card */}
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-8">
+        <div className="backdrop-blur-xl rounded-2xl shadow-2xl p-8 border" style={{ background: colors.surface, borderColor: colors.border }}>
           {/* Header */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-14 h-14 bg-linear-to-br from-[#09637E] to-[#088395] rounded-xl mb-4 shadow-lg shadow-[#09637E]/25">
@@ -92,8 +102,8 @@ export default function LoginPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
             </div>
-            <h1 className="text-2xl font-bold text-white">Welcome Back</h1>
-            <p className="text-gray-400 mt-1 text-sm">
+            <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>Welcome Back</h1>
+            <p className="mt-1 text-sm" style={{ color: colors.textSecondary }}>
               Sign in with your email or username
             </p>
           </div>
@@ -107,7 +117,7 @@ export default function LoginPage() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label htmlFor="identifier" className="block text-sm font-medium text-gray-300 mb-1.5">
+              <label htmlFor="identifier" className="block text-sm font-medium mb-1.5" style={{ color: colors.textSecondary }}>
                 Email or Username
               </label>
               <input
@@ -116,12 +126,13 @@ export default function LoginPage() {
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 placeholder="you@example.com or johndoe"
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#09637E]/50 focus:border-[#09637E]/50 transition-all"
+                className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#09637E]/50 focus:border-[#09637E]/50 transition-all placeholder:text-gray-500"
+                style={{ background: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }}
                 autoFocus
               />
             </div>
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1.5">
+              <label htmlFor="password" className="block text-sm font-medium mb-1.5" style={{ color: colors.textSecondary }}>
                 Password
               </label>
               <input
@@ -130,7 +141,8 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#09637E]/50 focus:border-[#09637E]/50 transition-all"
+                className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#09637E]/50 focus:border-[#09637E]/50 transition-all placeholder:text-gray-500"
+                style={{ background: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }}
               />
             </div>
 
@@ -152,7 +164,7 @@ export default function LoginPage() {
           </form>
 
           {/* Footer link */}
-          <p className="mt-6 text-center text-sm text-gray-400">
+          <p className="mt-6 text-center text-sm" style={{ color: colors.textSecondary }}>
             Don&apos;t have an account?{" "}
             <Link href="/signup" className="text-[#088395] hover:text-[#09637E] font-medium transition-colors">
               Create one

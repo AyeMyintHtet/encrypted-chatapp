@@ -1,6 +1,7 @@
 "use client";
 
 import { useTheme } from "@/context/ThemeContext";
+import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 
 /**
  * Animated sun/moon theme toggle button.
@@ -10,18 +11,15 @@ import { useTheme } from "@/context/ThemeContext";
 export default function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === "dark";
+  const colors = THEME_CONFIG[theme as ThemeType];
 
   return (
     <button
       onClick={toggleTheme}
       className="group relative flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-300 cursor-pointer overflow-hidden"
       style={{
-        background: isDark
-          ? "rgba(255, 255, 255, 0.05)"
-          : "#EFE9E3",
-        border: isDark
-          ? "1px solid rgba(255, 255, 255, 0.1)"
-          : "1px solid #D9CFC7",
+        background: colors.surface,
+        border: `1px solid ${colors.border}`,
       }}
       aria-label={`Switch to ${isDark ? "light" : "dark"} theme`}
       title={`Switch to ${isDark ? "light" : "dark"} theme`}
@@ -34,7 +32,7 @@ export default function ThemeToggle() {
           height: 20,
           opacity: isDark ? 1 : 0,
           transform: isDark ? "rotate(0deg) scale(1)" : "rotate(90deg) scale(0)",
-          color: "#F9F8F6",
+          color: colors.textPrimary,
         }}
         fill="none"
         viewBox="0 0 24 24"
@@ -56,7 +54,7 @@ export default function ThemeToggle() {
           height: 20,
           opacity: isDark ? 0 : 1,
           transform: isDark ? "rotate(-90deg) scale(0)" : "rotate(0deg) scale(1)",
-          color: "#09637E",
+          color: colors.accent,
         }}
         fill="none"
         viewBox="0 0 24 24"
@@ -75,8 +73,8 @@ export default function ThemeToggle() {
         className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
         style={{
           boxShadow: isDark
-            ? "inset 0 0 12px rgba(249, 248, 246, 0.15)"
-            : "inset 0 0 12px rgba(9, 99, 126, 0.15)",
+            ? `inset 0 0 12px ${colors.glow1}`
+            : `inset 0 0 12px ${colors.glow1}`,
         }}
       />
     </button>
