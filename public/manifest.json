@@ -1,0 +1,55 @@
+{
+  "name": "Kito — Messaging",
+  "short_name": "Kito",
+  "description": "Experience ultimate privacy with Kito. Real-time, peer-to-peer encrypted messaging with end-to-end encryption.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0a0a",
+  "theme_color": "#09637E",
+  "scope": "/",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": [
+    "social",
+    "communication",
+    "productivity"
+  ],
+  "icons": [
+    {
+      "src": "/logoo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logoo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Open Chat",
+      "short_name": "Chat",
+      "url": "/dashboard",
+      "description": "Jump straight to your conversations",
+      "icons": [
+        {
+          "src": "/logoo.png",
+          "sizes": "512x512",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
+}

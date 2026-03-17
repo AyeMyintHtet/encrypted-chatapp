@@ -130,16 +130,40 @@ export default function SignupPage() {
 
       <div className="relative w-full max-w-md">
         {/* Glass card */}
-        <div className="backdrop-blur-xl rounded-2xl shadow-2xl p-8 border" style={{ background: colors.surface, borderColor: colors.border }}>
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-14 h-14 bg-linear-to-br from-[#09637E] to-[#088395] rounded-xl mb-4 shadow-lg shadow-[#09637E]/25">
-              <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-              </svg>
+        <div className="backdrop-blur-xl rounded-2xl shadow-2xl p-6 sm:p-8 border" style={{ background: colors.surface, borderColor: colors.border }}>
+          {/* Header with product logo & attractive quote */}
+          <div className="text-center mb-6 sm:mb-8">
+            {/* Product logo */}
+            <div className="flex justify-center mb-4 sm:mb-5">
+              <img
+                src="/logoo.png"
+                alt="Kito — Secure Encrypted Chat"
+                className="w-16 h-16 sm:w-20 sm:h-20 drop-shadow-[0_0_20px_rgba(9,99,126,0.4)] transition-transform duration-500 hover:scale-110"
+              />
             </div>
-            <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>Create Account</h1>
-            <p className="mt-1 text-sm" style={{ color: colors.textSecondary }}>
+
+            <h1 className="text-xl sm:text-2xl font-bold" style={{ color: colors.textPrimary }}>Create Account</h1>
+
+            {/* Attractive quote — Playfair Display (serif) */}
+            <p
+              className="mt-3 text-base sm:text-lg italic leading-snug"
+              style={{
+                fontFamily: "var(--font-playfair), Georgia, serif",
+                color: colors.textPrimary,
+                opacity: 0.85,
+              }}
+            >
+              &ldquo;Privacy isn&rsquo;t a privilege — it&rsquo;s a right.&rdquo;
+            </p>
+
+            {/* Tagline — Outfit (geometric sans) */}
+            <p
+              className="mt-2 text-sm tracking-wide font-light"
+              style={{
+                fontFamily: "var(--font-outfit), sans-serif",
+                color: colors.textSecondary,
+              }}
+            >
               {step === 1 ? "Enter your email to get started" : "Complete your profile"}
             </p>
           </div>

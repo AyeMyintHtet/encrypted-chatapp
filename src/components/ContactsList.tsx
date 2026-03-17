@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
+import ConfirmationModal from "@/components/ConfirmationModal";
 import type { Profile, UserPresence } from "@/lib/types";
 
 interface ContactsListProps {
@@ -22,6 +23,7 @@ export default function ContactsList({ currentUserId, presenceMap }: ContactsLis
 
   const [contacts, setContacts] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   /** Fetch accepted connections and resolve the "other" user's profile */
   const fetchContacts = async () => {
@@ -175,7 +177,7 @@ export default function ContactsList({ currentUserId, presenceMap }: ContactsLis
         {/* Clear All Contacts — only visible when there are contacts */}
         {contacts.length >= 1 && (
           <button
-            onClick={clearAllContacts}
+            onClick={() => setShowClearConfirm(true)}
             className="px-3 py-1.5 text-xs text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-lg transition-all cursor-pointer font-normal"
           >
             Clear All Contacts
@@ -226,6 +228,15 @@ export default function ContactsList({ currentUserId, presenceMap }: ContactsLis
           ))}
         </div>
       )}
+
+      <ConfirmationModal
+        isOpen={showClearConfirm}
+        onClose={() => setShowClearConfirm(false)}
+        onConfirm={clearAllContacts}
+        title="Clear All Contacts"
+        message="Are you sure you want to delete all your contacts? This action cannot be undone."
+        confirmText="Clear All"
+      />
     </div>
   );
 }

@@ -1,11 +1,33 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Playfair_Display, Outfit, Roboto_Slab } from "next/font/google";
 import { ThemeProvider } from "@/context/ThemeContext";
+import OfflineOverlay from "@/components/OfflineOverlay";
 import "./globals.css";
 
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
+});
+
+// Elegant serif font for prominent quotes on auth pages
+const playfair = Playfair_Display({
+  variable: "--font-playfair",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
+
+// Modern geometric sans-serif for taglines
+const outfit = Outfit({
+  variable: "--font-outfit",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600"],
+});
+
+// Bold slab-serif for the "Kito" brand name
+const robotoSlab = Roboto_Slab({
+  variable: "--font-roboto-slab",
+  subsets: ["latin"],
+  weight: ["400", "500", "700", "900"],
 });
 
 export const metadata: Metadata = {
@@ -32,9 +54,15 @@ export const metadata: Metadata = {
     description: "Secure, real-time, peer-to-peer encrypted messaging.",
   },
   icons: {
-    icon: "/favicon.ico",
+    icon: "/logoo.png",
     shortcut: "/favicon.ico",
-    apple: "/favicon.ico", // Usually best to have a specific apple-touch-icon, but this fulfills the request
+    apple: "/logoo.png",
+  },
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Kito",
   },
 };
 
@@ -45,8 +73,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} font-sans antialiased`}>
-        <ThemeProvider>{children}</ThemeProvider>
+      <body className={`${inter.variable} ${playfair.variable} ${outfit.variable} ${robotoSlab.variable} font-sans antialiased`}>
+        <ThemeProvider>
+          <OfflineOverlay />
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

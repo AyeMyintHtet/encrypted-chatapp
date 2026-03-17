@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import ThemeToggle from "@/components/ThemeToggle";
+import ProjectName from "@/components/ProjectName";
 
 /**
  * Login page supporting both email and username login.
@@ -91,21 +92,17 @@ export default function LoginPage() {
       <div className="absolute top-4 right-4 z-20">
         <ThemeToggle />
       </div>
+      {/* Product logo */}
 
       <div className="relative w-full max-w-md">
         {/* Glass card */}
-        <div className="backdrop-blur-xl rounded-2xl shadow-2xl p-8 border" style={{ background: colors.surface, borderColor: colors.border }}>
-          {/* Header */}
+        <ProjectName />
+        <div className="backdrop-blur-xl rounded-2xl shadow-2xl p-6 sm:p-8 border" style={{ background: colors.surface, borderColor: colors.border }}>
+          {/* Header with product logo & attractive quote */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-14 h-14 bg-linear-to-br from-[#09637E] to-[#088395] rounded-xl mb-4 shadow-lg shadow-[#09637E]/25">
-              <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-            </div>
+
             <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>Welcome Back</h1>
-            <p className="mt-1 text-sm" style={{ color: colors.textSecondary }}>
-              Sign in with your email or username
-            </p>
+
           </div>
 
           {/* Error display */}

@@ -7,6 +7,8 @@ import { useLocalChat } from "@/hooks/useLocalChat";
 import { usePresence } from "@/hooks/usePresence";
 import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
+import ThemeToggle from "@/components/ThemeToggle";
+import ConfirmationModal from "@/components/ConfirmationModal";
 import type { Profile, ChatMessage, PresenceStatus } from "@/lib/types";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
@@ -25,6 +27,7 @@ export default function ChatPage() {
   const [peerProfile, setPeerProfile] = useState<Profile | null>(null);
   const [inputValue, setInputValue] = useState("");
   const [loading, setLoading] = useState(true);
+  const [showClearChatConfirm, setShowClearChatConfirm] = useState(false);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -231,17 +234,17 @@ export default function ChatPage() {
             </button>
 
             {/* Peer info with presence */}
-            <div className="relative">
-              <div className="w-10 h-10 bg-linear-to-br from-[#09637E] to-[#088395] rounded-full flex items-center justify-center text-white font-semibold text-sm">
+            <div className="relative shrink-0">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-linear-to-br from-[#09637E] to-[#088395] rounded-full flex items-center justify-center text-white font-semibold text-xs sm:text-sm">
                 {peerProfile.name.charAt(0).toUpperCase()}
               </div>
-              <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 ${statusColor}`} style={{ borderColor: isDark ? colors.backgroundSolid : colors.surface }} />
+              <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border-2 ${statusColor}`} style={{ borderColor: isDark ? colors.backgroundSolid : colors.surface }} />
             </div>
-            <div>
-              <h1 className="font-semibold text-sm" style={{ color: colors.textPrimary }}>{peerProfile.name}</h1>
-              <p className="text-xs flex items-center gap-1" style={{ color: colors.textTertiary }}>
-                @{peerProfile.username}
-                <span style={{ color: colors.borderMuted }}>·</span>
+            <div className="min-w-0">
+              <h1 className="font-semibold text-xs sm:text-sm truncate" style={{ color: colors.textPrimary }}>{peerProfile.name}</h1>
+              <p className="text-[10px] sm:text-xs flex items-center gap-1" style={{ color: colors.textTertiary }}>
+                <span className="truncate hidden sm:inline">@{peerProfile.username}</span>
+                <span className="hidden sm:inline" style={{ color: colors.borderMuted }}>·</span>
                 <span className={
                   peerStatus === "active" ? "text-emerald-400" :
                     peerStatus === "idle" ? "text-amber-400" : "text-gray-500"
@@ -251,31 +254,36 @@ export default function ChatPage() {
               </p>
             </div>
           </div>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Theme Toggle */}
+            <ThemeToggle />
 
-          {/* Clear All Chat button — only visible when there are messages */}
-          {messages.length >= 1 && (
-            <button
-              onClick={clearMessages}
-              className="px-3 py-1.5 text-xs text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-lg transition-all cursor-pointer"
-            >
-              Clear All Chat
-            </button>
-          )}
+            {/* Clear All Chat button — only visible when there are messages */}
+            {messages.length >= 1 && (
+              <button
+                onClick={() => setShowClearChatConfirm(true)}
+                className="px-2 sm:px-3 py-1.5 text-[10px] sm:text-xs text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-lg transition-all cursor-pointer whitespace-nowrap"
+              >
+                <span className="hidden sm:inline">Clear All Chat</span>
+                <span className="sm:hidden">Clear</span>
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
       {/* Messages area */}
       <main className="relative z-10 flex-1 overflow-y-auto" style={{ background: isDark ? "#111827" : colors.surface }}>
-        <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">
+        <div className="max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-3 sm:space-y-4">
           {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center">
-              <div className="w-16 h-16 bg-linear-to-br from-[#09637E]/20 to-[#088395]/20 rounded-2xl flex items-center justify-center mb-4">
-                <svg className="w-8 h-8 text-[#09637E]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <div className="flex flex-col items-center justify-center h-full min-h-[250px] sm:min-h-[300px] text-center">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-linear-to-br from-[#09637E]/20 to-[#088395]/20 rounded-2xl flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 sm:w-8 sm:h-8 text-[#09637E]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
               </div>
-              <p className="text-sm" style={{ color: colors.textPrimary }}>No messages yet</p>
-              <p className="text-xs mt-1" style={{ color: colors.textTertiary }}>Send a message to start the conversation</p>
+              <p className="text-xs sm:text-sm" style={{ color: colors.textPrimary }}>No messages yet</p>
+              <p className="text-[10px] sm:text-xs mt-1" style={{ color: colors.textTertiary }}>Send a message to start the conversation</p>
             </div>
           ) : (
             messages.map((msg) => {
@@ -286,14 +294,14 @@ export default function ChatPage() {
                   className={`flex ${isOwn ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`max-w-[75%] sm:max-w-[60%] px-4 py-2.5 rounded-2xl ${isOwn
-                      ? "bg-linear-to-r from-[#09637E] to-[#088395] text-white rounded-br-md"
-                      : "rounded-bl-md"
+                    className={`max-w-[85%] sm:max-w-[70%] md:max-w-[60%] px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl ${isOwn
+                      ? "bg-linear-to-r from-[#09637E] to-[#088395] text-white rounded-br-md shadow-sm"
+                      : "rounded-bl-md shadow-xs"
                       }`}
                     style={!isOwn ? { background: colors.surfaceHover, color: colors.textPrimary } : {}}
                   >
-                    <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
-                    <p className={`text-[10px] mt-1 ${isOwn ? "text-white/60" : ""}`} style={!isOwn ? { color: colors.textSecondary } : {}}>
+                    <p className="text-xs sm:text-sm whitespace-pre-wrap break-words leading-relaxed">{msg.content}</p>
+                    <p className={`text-[9px] sm:text-[10px] mt-1 text-right sm:text-left ${isOwn ? "text-white/60" : ""}`} style={!isOwn ? { color: colors.textSecondary } : {}}>
                       {formatTime(msg.timestamp)}
                     </p>
                   </div>
@@ -307,17 +315,17 @@ export default function ChatPage() {
 
       {/* Message input */}
       <footer className="relative z-10 backdrop-blur-md" style={{ background: isDark ? "rgba(3,7,18,0.8)" : "rgba(239,233,227,0.8)", borderTop: `1px solid ${colors.borderMuted}` }}>
-        <div className="max-w-4xl mx-auto px-4 py-4">
+        <div className="max-w-4xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
           {/* Offline banner — show when peer is not in this chat */}
           {isPeerOffline && (
-            <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: colors.surface, border: `1px solid ${colors.borderMuted}` }}>
-              <div className="w-2 h-2 bg-gray-500 rounded-full" />
-              <span className="text-xs" style={{ color: colors.textSecondary }}>
+            <div className="mb-2 sm:mb-3 flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: colors.surface, border: `1px solid ${colors.borderMuted}` }}>
+              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-gray-500 rounded-full" />
+              <span className="text-[10px] sm:text-xs" style={{ color: colors.textSecondary }}>
                 {peerProfile.name} is offline — messages will be delivered when they open the app.
               </span>
             </div>
           )}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <input
               type="text"
               value={inputValue}
@@ -325,22 +333,31 @@ export default function ChatPage() {
               onKeyDown={handleKeyDown}
               placeholder={isPeerOffline ? `${peerProfile.name} is offline...` : "Type a message..."}
               disabled={isPeerOffline}
-              className={`flex-1 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#09637E]/50 focus:border-[#09637E]/50 transition-all text-sm ${isPeerOffline ? "opacity-50 cursor-not-allowed" : ""}`}
+              className={`flex-1 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#09637E]/50 focus:border-[#09637E]/50 transition-all text-xs sm:text-sm ${isPeerOffline ? "opacity-50 cursor-not-allowed" : ""}`}
               style={{ background: colors.inputBg, border: `1px solid ${colors.border}`, color: colors.textPrimary }}
               autoFocus
             />
             <button
               onClick={handleSendMessage}
               disabled={!inputValue.trim() || isPeerOffline}
-              className="p-3 bg-linear-to-r from-[#09637E] to-[#088395] hover:from-[#0a7490] hover:to-[#099aaa] text-white rounded-xl transition-all shadow-lg shadow-[#09637E]/25 hover:shadow-[#09637E]/40 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+              className="p-2.5 sm:p-3 bg-linear-to-r from-[#09637E] to-[#088395] hover:from-[#0a7490] hover:to-[#099aaa] text-white rounded-xl transition-all shadow-lg shadow-[#09637E]/25 hover:shadow-[#09637E]/40 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
               </svg>
             </button>
           </div>
         </div>
       </footer>
+
+      <ConfirmationModal
+        isOpen={showClearChatConfirm}
+        onClose={() => setShowClearChatConfirm(false)}
+        onConfirm={clearMessages}
+        title="Clear Chat History"
+        message={`Are you sure you want to clear your chat history with ${peerProfile.name}? This will only clear the messages locally on your device.`}
+        confirmText="Clear Chat"
+      />
     </div>
   );
 }
