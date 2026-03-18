@@ -18,7 +18,7 @@ interface ContactsListProps {
 export default function ContactsList({ currentUserId, presenceMap }: ContactsListProps) {
   const supabase = createClient();
   const router = useRouter();
-  
+
   // Local-first persistence
   const { contacts, isContactsLoading, fetchContacts, optimisticClearContacts } = useAppStore();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -47,8 +47,8 @@ export default function ContactsList({ currentUserId, presenceMap }: ContactsLis
     const channel = supabase
       .channel("contacts-updates")
       .on(
-        "postgres_changes", 
-        { event: "*", schema: "public", table: "connections" }, 
+        "postgres_changes",
+        { event: "*", schema: "public", table: "connections" },
         () => fetchContacts(currentUserId)
       )
       .subscribe();

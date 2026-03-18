@@ -19,7 +19,8 @@ export default function PendingRequests({ currentUserId }: PendingRequestsProps)
     isRequestsLoading,
     fetchPendingRequests,
     optimisticAcceptRequest,
-    optimisticDeclineRequest
+    optimisticDeclineRequest,
+    fetchContacts
   } = useAppStore();
 
   const [isPending, startTransition] = useTransition();
@@ -49,9 +50,9 @@ export default function PendingRequests({ currentUserId }: PendingRequestsProps)
     const channel = supabase
       .channel("pending-requests")
       .on(
-        "postgres_changes", 
-        { event: "*", schema: "public", table: "connections" }, 
-        () => fetchPendingRequests(currentUserId)
+        "postgres_changes",
+        { event: "*", schema: "public", table: "connections" },
+        () => [fetchPendingRequests(currentUserId), fetchContacts(currentUserId)]
       )
       .subscribe();
 
@@ -135,7 +136,7 @@ export default function PendingRequests({ currentUserId }: PendingRequestsProps)
                 <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
                   {req.profile.name.charAt(0).toUpperCase()}
                 </div>
-                 <div>
+                <div>
                   <p className="font-medium text-sm" style={{ color: colors.textPrimary }}>{req.profile.name}</p>
                   <p className="text-xs" style={{ color: colors.textSecondary }}>@{req.profile.username}</p>
                 </div>
