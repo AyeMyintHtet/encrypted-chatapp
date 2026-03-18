@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { Profile } from '@/lib/types';
+import type { Profile, ChatMessage } from '@/lib/types';
 import { createClient } from '@/lib/supabase/client';
 
 interface PendingRequest {
@@ -14,6 +14,7 @@ interface AppState {
   contacts: Profile[];
   pendingRequests: PendingRequest[];
   searchResults: Profile[];
+  messages: ChatMessage[];
   
   // Loading states
   isContactsLoading: boolean;
@@ -24,6 +25,8 @@ interface AppState {
   setContacts: (contacts: Profile[]) => void;
   setPendingRequests: (requests: PendingRequest[]) => void;
   setSearchResults: (results: Profile[]) => void;
+  setMessages: (messages: ChatMessage[]) => void;
+  addMessage: (message: ChatMessage) => void;
   
   // Optimistic UI updates
   optimisticClearContacts: () => void;
@@ -46,6 +49,7 @@ export const useAppStore = create<AppState>()(
       contacts: [],
       pendingRequests: [],
       searchResults: [],
+      messages: [],
       
       isContactsLoading: true, // true initally so we show skeletons if empty
       isRequestsLoading: true,
@@ -54,6 +58,8 @@ export const useAppStore = create<AppState>()(
       setContacts: (contacts) => set({ contacts, isContactsLoading: false }),
       setPendingRequests: (requests) => set({ pendingRequests: requests, isRequestsLoading: false }),
       setSearchResults: (results) => set({ searchResults: results, isSearching: false }),
+      setMessages: (messages) => set({ messages }),
+      addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
       
       optimisticClearContacts: () => set({ contacts: [] }),
       
