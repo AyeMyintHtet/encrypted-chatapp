@@ -38,3 +38,7 @@ body {
 .status-dot {
   transition: background-color 0.3s ease;
 }
+
+.safe-bottom-area{
+  padding-bottom: env(safe-area-inset-bottom);
+}

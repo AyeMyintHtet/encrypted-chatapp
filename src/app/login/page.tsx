@@ -34,14 +34,32 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
 
-    if (!identifier.trim() || !password.trim()) {
+    const safeIdentifier = identifier.trim();
+    const safePassword = password.trim();
+
+    if (!safeIdentifier || !safePassword) {
       setError("Please fill in all fields");
       setLoading(false);
       return;
     }
 
+    // Security constraints: Maximum length to prevent payload overflow
+    if (safeIdentifier.length > 255 || safePassword.length > 255) {
+      setError("Input length exceeds maximum allowed limit.");
+      setLoading(false);
+      return;
+    }
+
+    // Basic SQLi/XSS pattern prevention for identifier
+    const maliciousPattern = /(--|;|<|>|'|"|`|\\)/;
+    if (maliciousPattern.test(safeIdentifier)) {
+      setError("Invalid characters detected in the input. Symbols like <, >, ', \", ; are not allowed.");
+      setLoading(false);
+      return;
+    }
+
     try {
-      let loginEmail = identifier.trim();
+      let loginEmail = safeIdentifier;
 
       // If user entered a username (not an email), resolve it to the associated email
       if (!isEmail(loginEmail)) {
@@ -120,6 +138,7 @@ export default function LoginPage() {
               <input
                 id="identifier"
                 type="text"
+                maxLength={255}
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 placeholder="you@example.com or johndoe"
@@ -135,6 +154,7 @@ export default function LoginPage() {
               <input
                 id="password"
                 type="password"
+                maxLength={255}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"

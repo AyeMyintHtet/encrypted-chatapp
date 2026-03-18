@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Playfair_Display, Outfit, Roboto_Slab } from "next/font/google";
 import { ThemeProvider } from "@/context/ThemeContext";
+import QueryProvider from "@/context/QueryProvider";
 import OfflineOverlay from "@/components/OfflineOverlay";
 import "./globals.css";
 
@@ -74,10 +75,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} ${playfair.variable} ${outfit.variable} ${robotoSlab.variable} font-sans antialiased`}>
-        <ThemeProvider>
-          <OfflineOverlay />
-          {children}
-        </ThemeProvider>
+        <QueryProvider>
+          <ThemeProvider>
+            <OfflineOverlay />
+            {children}
+          </ThemeProvider>
+        </QueryProvider>
       </body>
     </html>
   );

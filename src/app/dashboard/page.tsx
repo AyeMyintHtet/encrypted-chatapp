@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { usePresence } from "@/hooks/usePresence";
+import { useCurrentProfile } from "@/hooks/useProfile";
 import { useTheme } from "@/context/ThemeContext";
 import SearchUsers from "@/components/SearchUsers";
 import PendingRequests from "@/components/PendingRequests";
@@ -18,48 +19,10 @@ import type { Profile } from "@/lib/types";
  * Shows search, pending requests, and contacts with presence tracking.
  */
 export default function DashboardPage() {
-  const supabase = createClient();
   const router = useRouter();
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
 
-  // Fetch current user's profile on mount
-  useEffect(() => {
-    const fetchProfile = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        router.push("/login");
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-      // 406 = session invalid/expired — sign out, clear cookies, redirect to login
-      if (error && (error.code === "406" || error.message?.includes("406"))) {
-        await supabase.auth.signOut();
-        // Clear all Supabase auth cookies to fully reset session
-        document.cookie.split(";").forEach((c) => {
-          document.cookie = c.trim().split("=")[0] + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
-        });
-        router.push("/login");
-        return;
-      }
-
-      if (data) setProfile(data);
-      setLoading(false);
-    };
-
-    fetchProfile();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Fetch current user's profile using centralized React Query hook
+  const { data: profile, isLoading: loading } = useCurrentProfile();
 
   // Initialize presence tracking — no chatWith, so our status is "offline" here
   const { presenceMap, myStatus } = usePresence(
@@ -70,10 +33,18 @@ export default function DashboardPage() {
 
   /** Sign out and redirect to login */
   const handleSignOut = async () => {
+    // Note: It's better to rely on Supabase directly to log out the user,
+    // though createClient could have been kept, we recreate it here specifically for log out.
+    // Or we can import explicitly.
+    const { createClient } = await import('@/lib/supabase/client');
+    const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();
   };
+  
+  // We reinstate showSignOutConfirm because I deleted the hook inadvertently!
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState<boolean>(false);
 
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -102,7 +73,7 @@ export default function DashboardPage() {
       myStatus === "idle" ? "Idle" : "Offline";
 
   return (
-    <div className="min-h-screen" style={{ background: colors.background }}>
+    <div className="min-h-screen " style={{ background: colors.background }}>
       {/* Ambient background glow */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full blur-[120px]" style={{ background: colors.glow1 }} />
@@ -158,20 +129,21 @@ export default function DashboardPage() {
       </header>
 
       {/* Main content */}
-      <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-8 max-h-[80dvh]">
+        <div className="grid grid-cols-1 lg:grid-cols-3 md:grid-cols-2 gap-6">
           {/* Left column: Search + Pending Requests */}
-          <div className="lg:col-span-1 space-y-6">
+          <div className="lg:col-span-1 md:col-span-1 space-y-6 hidden md:block ">
             <SearchUsers currentUserId={profile.id} />
             <PendingRequests currentUserId={profile.id} />
           </div>
 
           {/* Right column: Contacts */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 md:col-span-1 col-span-1">
             <ContactsList currentUserId={profile.id} presenceMap={presenceMap} />
           </div>
         </div>
       </main>
+
 
       <ConfirmationModal
         isOpen={showSignOutConfirm}

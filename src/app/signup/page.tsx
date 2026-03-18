@@ -33,15 +33,29 @@ export default function SignupPage() {
 
   /** Validate email format before advancing to step 2 */
   const handleEmailNext = () => {
-    if (!email.trim()) {
+    const safeEmail = email.trim();
+    if (!safeEmail) {
       setError("Email is required");
       return;
     }
+
+    if (safeEmail.length > 255) {
+      setError("Email length exceeds maximum allowed limit.");
+      return;
+    }
+
+    const maliciousPattern = /(--|;|<|>|'|"|`|\\)/;
+    if (maliciousPattern.test(safeEmail)) {
+      setError("Invalid characters detected in email. Symbols like <, >, ', \", ; are not allowed.");
+      return;
+    }
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(safeEmail)) {
       setError("Please enter a valid email address");
       return;
     }
+
     setError(null);
     setStep(2);
   };
@@ -52,19 +66,39 @@ export default function SignupPage() {
     setLoading(true);
     setError(null);
 
+    const safeName = name.trim();
+    const safeUsername = username.trim();
+    const safePassword = password.trim();
+    const safeEmail = email.trim();
+
     // Client-side validation
-    if (!name.trim() || !username.trim() || !password.trim()) {
+    if (!safeName || !safeUsername || !safePassword) {
       setError("All fields are required");
       setLoading(false);
       return;
     }
-    if (password.length < 6) {
+
+    if (safeName.length > 100 || safeUsername.length > 50 || safePassword.length > 255) {
+      setError("Input length exceeds maximum allowed limit.");
+      setLoading(false);
+      return;
+    }
+
+    const maliciousPattern = /(--|;|<|>|'|"|`|\\)/;
+    if (maliciousPattern.test(safeName)) {
+      setError("Invalid characters detected in full name. Symbols like <, >, ', \", ; are not allowed.");
+      setLoading(false);
+      return;
+    }
+
+    if (safePassword.length < 6) {
       setError("Password must be at least 6 characters");
       setLoading(false);
       return;
     }
+
     // Username: alphanumeric + underscores only
-    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+    if (!/^[a-zA-Z0-9_]+$/.test(safeUsername)) {
       setError("Username can only contain letters, numbers, and underscores");
       setLoading(false);
       return;
@@ -77,7 +111,7 @@ export default function SignupPage() {
       const { data: existingUser } = await supabase
         .from("profiles")
         .select("id")
-        .eq("username", username.toLowerCase())
+        .eq("username", safeUsername.toLowerCase())
         .maybeSingle();
 
       if (existingUser) {
@@ -90,12 +124,12 @@ export default function SignupPage() {
       // A database trigger (handle_new_user) reads the metadata
       // and auto-inserts the profile row, bypassing RLS timing issues.
       const { error: authError } = await supabase.auth.signUp({
-        email,
-        password,
+        email: safeEmail,
+        password: safePassword,
         options: {
           data: {
-            name: name.trim(),
-            username: username.toLowerCase().trim(),
+            name: safeName,
+            username: safeUsername.toLowerCase(),
           },
         },
       });
@@ -191,6 +225,7 @@ export default function SignupPage() {
                 <input
                   id="email"
                   type="email"
+                  maxLength={255}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleEmailNext()}
@@ -217,6 +252,7 @@ export default function SignupPage() {
                 <input
                   id="name"
                   type="text"
+                  maxLength={100}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="John Doe"
@@ -232,6 +268,7 @@ export default function SignupPage() {
                 <input
                   id="username"
                   type="text"
+                  maxLength={50}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="johndoe"
@@ -246,6 +283,7 @@ export default function SignupPage() {
                 <input
                   id="password"
                   type="password"
+                  maxLength={255}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"

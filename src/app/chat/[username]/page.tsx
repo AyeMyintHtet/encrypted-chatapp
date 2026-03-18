@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useLocalChat } from "@/hooks/useLocalChat";
 import { usePresence } from "@/hooks/usePresence";
+import { useCurrentProfile, usePeerProfile } from "@/hooks/useProfile";
 import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -22,63 +23,19 @@ export default function ChatPage() {
   const supabase = createClient();
   const peerUsername = params.username as string;
 
+  // Fetch profiles globally via React Query
+  const { data: currentProfile, isLoading: currentLoading } = useCurrentProfile();
+  const { data: peerProfile, isLoading: peerLoading } = usePeerProfile(peerUsername);
+  
+  const loading = currentLoading || peerLoading;
+
   // State
-  const [currentProfile, setCurrentProfile] = useState<Profile | null>(null);
-  const [peerProfile, setPeerProfile] = useState<Profile | null>(null);
   const [inputValue, setInputValue] = useState("");
-  const [loading, setLoading] = useState(true);
   const [showClearChatConfirm, setShowClearChatConfirm] = useState(false);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const channelRef = useRef<RealtimeChannel | null>(null);
-
-  // Load profiles on mount
-  useEffect(() => {
-    const loadProfiles = async () => {
-      // Get current user
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        router.push("/login");
-        return;
-      }
-
-      // Fetch both profiles in parallel
-      const [currentRes, peerRes] = await Promise.all([
-        supabase.from("profiles").select("*").eq("id", user.id).single(),
-        supabase.from("profiles").select("*").eq("username", peerUsername).single(),
-      ]);
-
-      // 406 = session invalid/expired — sign out, clear cookies, redirect to login
-      if (
-        (currentRes.error && (currentRes.error.code === "406" || currentRes.error.message?.includes("406"))) ||
-        (peerRes.error && (peerRes.error.code === "406" || peerRes.error.message?.includes("406")))
-      ) {
-        await supabase.auth.signOut();
-        // Clear all Supabase auth cookies to fully reset session
-        document.cookie.split(";").forEach((c) => {
-          document.cookie = c.trim().split("=")[0] + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
-        });
-        router.push("/login");
-        return;
-      }
-
-      if (!currentRes.data || !peerRes.data) {
-        router.push("/dashboard");
-        return;
-      }
-
-      setCurrentProfile(currentRes.data);
-      setPeerProfile(peerRes.data);
-      setLoading(false);
-    };
-
-    loadProfiles();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [peerUsername]);
+  const channelRef = useRef<import("@supabase/supabase-js").RealtimeChannel | null>(null);
 
   // Initialize chat hook once both profiles are loaded
   const { messages, addMessage, clearMessages } = useLocalChat(
@@ -111,7 +68,7 @@ export default function ChatPage() {
 
   // Set up Broadcast channel for real-time messaging
   useEffect(() => {
-    if (!currentProfile || !peerProfile) return;
+    if (!currentProfile || !peerProfile || loading) return;
 
     // Create a deterministic channel name (sorted user IDs)
     const channelName = `chat_${[currentProfile.id, peerProfile.id].sort().join("_")}`;
@@ -142,7 +99,7 @@ export default function ChatPage() {
       channel.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentProfile?.id, peerProfile?.id]);
+  }, [currentProfile?.id, peerProfile?.id, loading]);
 
   /** Send a message via Broadcast and persist to localStorage */
   const handleSendMessage = async () => {
