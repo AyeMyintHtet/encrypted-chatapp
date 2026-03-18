@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import { useDebounce } from "@/hooks/useDebounce";
+import { useAppStore } from "@/store/useAppStore";
 import type { Profile } from "@/lib/types";
 
 interface SearchUsersProps {
@@ -18,67 +19,53 @@ interface SearchUsersProps {
 export default function SearchUsers({ currentUserId }: SearchUsersProps) {
   const supabase = createClient();
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<Profile[]>([]);
-  const [searching, setSearching] = useState(false);
+
+  const { searchResults: results, isSearching: searching, searchUsers } = useAppStore();
+  const [isPending, startTransition] = useTransition();
+
   const [sentRequests, setSentRequests] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const debouncedQuery = useDebounce(query, 500);
 
-  /** Search profiles by username (case-insensitive partial match) */
-  const performSearch = useCallback(
-    async (searchQuery: string) => {
-      if (searchQuery.trim().length < 2) {
-        setResults([]);
-        return;
-      }
-
-      setSearching(true);
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .ilike("username", `%${searchQuery.trim()}%`)
-        .neq("id", currentUserId) // exclude self
-        .limit(10);
-
-      if (error) {
-        setMessage({ type: "error", text: "Failed to search users" });
-      } else {
-        setResults(data || []);
-      }
-      setSearching(false);
-    },
-    [currentUserId, supabase]
-  );
-
   // Trigger search when debounced query changes
   useEffect(() => {
-    performSearch(debouncedQuery);
-  }, [debouncedQuery, performSearch]);
+    searchUsers(currentUserId, debouncedQuery);
+  }, [currentUserId, debouncedQuery, searchUsers]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setQuery(val);
     setMessage(null);
-    if (val.trim().length < 2) {
-      setResults([]);
-    }
   };
 
   /** Send a connection request to a user */
   const handleConnect = async (receiverId: string) => {
     setMessage(null);
+    setQuery("")
+    // Optimistically update the sentRequests UI state within a transition
+    startTransition(() => {
+      setSentRequests((prev) => new Set(prev).add(receiverId));
+    });
 
-    // Check if a connection already exists between these users
+    // Check if a connection already exists between these users (Server-side validation)
     const { data: existingConnection } = await supabase
       .from("connections")
       .select("id, status")
       .or(
         `and(requester_id.eq.${currentUserId},receiver_id.eq.${receiverId}),and(requester_id.eq.${receiverId},receiver_id.eq.${currentUserId})`
       )
-      .single();
+      .maybeSingle();
 
     if (existingConnection) {
+      // Revert optimism
+      startTransition(() => {
+        setSentRequests((prev) => {
+          const next = new Set(prev);
+          next.delete(receiverId);
+          return next;
+        });
+      });
       const statusText =
         existingConnection.status === "accepted" ? "already connected" : "already pending";
       setMessage({ type: "error", text: `You are ${statusText} with this user` });
@@ -93,9 +80,16 @@ export default function SearchUsers({ currentUserId }: SearchUsersProps) {
     });
 
     if (error) {
+      // Revert optimism
+      startTransition(() => {
+        setSentRequests((prev) => {
+          const next = new Set(prev);
+          next.delete(receiverId);
+          return next;
+        });
+      });
       setMessage({ type: "error", text: error.message });
     } else {
-      setSentRequests((prev) => new Set(prev).add(receiverId));
       setMessage({ type: "success", text: "Connection request sent!" });
     }
   };
@@ -135,11 +129,10 @@ export default function SearchUsers({ currentUserId }: SearchUsersProps) {
 
       {/* Status message */}
       {message && (
-        <div className={`mt-3 p-2.5 rounded-lg text-sm ${
-          message.type === "success"
+        <div className={`mt-3 p-2.5 rounded-lg text-sm ${message.type === "success"
             ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
             : "bg-red-500/10 border border-red-500/20 text-red-400"
-        }`}>
+          }`}>
           {message.text}
         </div>
       )}
@@ -165,11 +158,10 @@ export default function SearchUsers({ currentUserId }: SearchUsersProps) {
               <button
                 onClick={() => handleConnect(user.id)}
                 disabled={sentRequests.has(user.id)}
-                className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                  sentRequests.has(user.id)
+                className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${sentRequests.has(user.id)
                     ? "bg-white/10 text-gray-400 cursor-not-allowed"
                     : "bg-[#09637E] hover:bg-[#088395] text-white shadow-lg shadow-[#09637E]/25"
-                }`}
+                  }`}
               >
                 {sentRequests.has(user.id) ? "Sent" : "Connect"}
               </button>

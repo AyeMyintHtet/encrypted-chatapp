@@ -1,117 +1,65 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useTransition, useOptimistic } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import type { Profile, UserPresence } from "@/lib/types";
+import { Virtuoso } from "react-virtuoso";
+import { useAppStore } from "@/store/useAppStore";
 
 interface ContactsListProps {
   currentUserId: string;
   presenceMap: Record<string, UserPresence>;
 }
 
-/**
- * Displays the user's accepted contacts with their presence status.
- * Clicking a contact navigates to the chat route.
- */
 export default function ContactsList({ currentUserId, presenceMap }: ContactsListProps) {
   const supabase = createClient();
   const router = useRouter();
-
-  const [contacts, setContacts] = useState<Profile[]>([]);
-  const [loading, setLoading] = useState(true);
+  
+  // Local-first persistence
+  const { contacts, isContactsLoading, fetchContacts, optimisticClearContacts } = useAppStore();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
-  /** Fetch accepted connections and resolve the "other" user's profile */
-  const fetchContacts = async () => {
-    // Get accepted connections involving the current user
-    const { data: connections } = await supabase
-      .from("connections")
-      .select("requester_id, receiver_id")
-      .eq("status", "accepted")
-      .or(`requester_id.eq.${currentUserId},receiver_id.eq.${currentUserId}`);
-
-    if (!connections || connections.length === 0) {
-      setContacts([]);
-      setLoading(false);
-      return;
-    }
-
-    // Extract the IDs of the "other" users
-    const otherIds = connections.map((c) =>
-      c.requester_id === currentUserId ? c.receiver_id : c.requester_id
-    );
-
-    // Fetch their profiles
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("*")
-      .in("id", otherIds);
-
-    setContacts(profiles || []);
-    setLoading(false);
-  };
-
-  /** Delete all accepted connections for the current user */
+  /** Delete all accepted connections optimistically */
   const clearAllContacts = useCallback(async () => {
-    // Delete rows where user is the requester
-    await supabase
-      .from("connections")
-      .delete()
-      .eq("status", "accepted")
-      .eq("requester_id", currentUserId);
+    // 1. Instantly update UI synchronously within React transition
+    startTransition(() => {
+      optimisticClearContacts();
+    });
 
-    // Delete rows where user is the receiver
-    await supabase
-      .from("connections")
-      .delete()
-      .eq("status", "accepted")
-      .eq("receiver_id", currentUserId);
-
-    // Clear local state immediately
-    setContacts([]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUserId]);
+    // 2. Perform background mutations
+    await Promise.all([
+      supabase.from("connections").delete().eq("status", "accepted").eq("requester_id", currentUserId),
+      supabase.from("connections").delete().eq("status", "accepted").eq("receiver_id", currentUserId)
+    ]);
+  }, [currentUserId, supabase, optimisticClearContacts]);
 
   useEffect(() => {
-    fetchContacts();
+    // Fire the background sync fetch. Will not show spinner if data exists in store!
+    fetchContacts(currentUserId);
 
-    // Subscribe to connection status changes (e.g., new acceptance)
+    // Subscribe to connection status changes
+    // Using a single wildcard event listener is more reliable than multiple chained event filters.
     const channel = supabase
       .channel("contacts-updates")
       .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "connections",
-        },
-        () => {
-          fetchContacts();
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "DELETE",
-          schema: "public",
-          table: "connections",
-        },
-        () => {
-          // Re-fetch when any connection is deleted (e.g., peer cleared contacts)
-          fetchContacts();
-        }
+        "postgres_changes", 
+        { event: "*", schema: "public", table: "connections" }, 
+        () => fetchContacts(currentUserId)
       )
       .subscribe();
 
     return () => {
       channel.unsubscribe();
     };
+    // NOTE: `supabase` is intentionally excluded — createClient() returns a
+    // singleton, and including it causes subscribe/unsubscribe churn every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUserId]);
+  }, [currentUserId, fetchContacts]);
 
   /** Get presence status dot color */
   const getStatusColor = (userId: string): string => {
@@ -145,15 +93,22 @@ export default function ContactsList({ currentUserId, presenceMap }: ContactsLis
   const isDark = theme === "dark";
   const colors = THEME_CONFIG[theme as ThemeType];
 
-  if (loading) {
+  // Only show shimmering skeletons if store is COMPLETELY empty on first load.
+  // If we have cached contacts, we render immediately.
+  if (isContactsLoading && contacts.length === 0) {
     return (
       <div className="backdrop-blur-sm rounded-2xl p-6" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
         <h2 className="text-lg font-semibold mb-4" style={{ color: colors.textPrimary }}>Contacts</h2>
-        <div className="flex items-center justify-center py-4">
-          <svg className="animate-spin h-5 w-5 text-[#09637E]" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
+        <div className="space-y-4">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="flex items-center gap-4 animate-pulse">
+              <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-700"></div>
+              <div className="flex-1 space-y-2">
+                <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-1/3"></div>
+                <div className="h-3 bg-gray-300 dark:bg-gray-700 rounded w-1/4"></div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -188,44 +143,48 @@ export default function ContactsList({ currentUserId, presenceMap }: ContactsLis
       {contacts.length === 0 ? (
         <p className="text-sm text-center py-4" style={{ color: colors.textTertiary }}>No connections yet. Search for users to connect!</p>
       ) : (
-        <div className="space-y-2">
-          {contacts.map((contact) => (
-            <button
-              key={contact.id}
-              onClick={() => router.push(`/chat/${contact.username}`)}
-              className="w-full flex items-center justify-between p-3 rounded-xl transition-all group cursor-pointer"
-              style={{ background: colors.surfaceHover }}
-            >
-              <div className="flex items-center gap-3">
-                {/* Avatar with status indicator */}
-                <div className="relative">
-                  <div className="w-10 h-10 bg-linear-to-br from-[#09637E] to-[#088395] rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                    {contact.name.charAt(0).toUpperCase()}
+        <div className="h-[400px]">
+          <Virtuoso
+            style={{ height: '100%' }}
+            data={contacts}
+            itemContent={(_, contact) => (
+              <div className="py-1">
+                <button
+                  onClick={() => router.push(`/chat/${contact.username}`)}
+                  className="w-full flex items-center justify-between p-3 rounded-xl transition-all group cursor-pointer"
+                  style={{ background: colors.surfaceHover }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <div className="w-10 h-10 bg-linear-to-br from-[#09637E] to-[#088395] rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                        {contact.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div
+                        className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 ${getStatusColor(contact.id)}`}
+                        style={{ borderColor: colors.surfaceHover }}
+                        title={getStatusLabel(contact.id)}
+                      />
+                    </div>
+                    <div className="text-left">
+                      <p className="font-medium text-sm" style={{ color: colors.textPrimary }}>{contact.name}</p>
+                      <p className="text-xs" style={{ color: colors.textSecondary }}>@{contact.username}</p>
+                    </div>
                   </div>
-                  <div
-                    className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 ${getStatusColor(contact.id)}`}
-                    style={{ borderColor: colors.surfaceHover }}
-                    title={getStatusLabel(contact.id)}
-                  />
-                </div>
-                <div className="text-left">
-                  <p className="font-medium text-sm" style={{ color: colors.textPrimary }}>{contact.name}</p>
-                  <p className="text-xs" style={{ color: colors.textSecondary }}>@{contact.username}</p>
-                </div>
-              </div>
 
-              <div className="flex items-center gap-2">
-                <span className={`text-xs font-medium ${getStatusLabel(contact.id) === "Active" ? "text-emerald-400" :
-                  getStatusLabel(contact.id) === "Idle" ? "text-amber-400" : "text-gray-500"
-                  }`}>
-                  {getStatusLabel(contact.id)}
-                </span>
-                <svg className="w-4 h-4 text-gray-500 group-hover:text-[#09637E] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-medium ${getStatusLabel(contact.id) === "Active" ? "text-emerald-400" :
+                      getStatusLabel(contact.id) === "Idle" ? "text-amber-400" : "text-gray-500"
+                      }`}>
+                      {getStatusLabel(contact.id)}
+                    </span>
+                    <svg className="w-4 h-4 text-gray-500 group-hover:text-[#09637E] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                  </div>
+                </button>
               </div>
-            </button>
-          ))}
+            )}
+          />
         </div>
       )}
 

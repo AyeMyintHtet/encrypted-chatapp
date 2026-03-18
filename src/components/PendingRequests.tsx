@@ -1,67 +1,33 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import type { Profile } from "@/lib/types";
+import { useAppStore } from "@/store/useAppStore";
 
 interface PendingRequestsProps {
   currentUserId: string;
 }
 
-/**
- * Realtime-updated list of incoming connection requests.
- * Subscribes to Supabase Realtime for INSERT events on the connections table
- * where the current user is the receiver.
- */
 export default function PendingRequests({ currentUserId }: PendingRequestsProps) {
   const supabase = createClient();
 
-  interface PendingRequest {
-    id: string;
-    requester_id: string;
-    profile: Profile;
-  }
+  const {
+    pendingRequests: requests,
+    isRequestsLoading,
+    fetchPendingRequests,
+    optimisticAcceptRequest,
+    optimisticDeclineRequest
+  } = useAppStore();
 
-  const [requests, setRequests] = useState<PendingRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // Track previous count to detect genuinely new requests and play sound
+  const [isPending, startTransition] = useTransition();
   const prevCountRef = useRef<number>(0);
 
-  /** Fetch pending requests with requester profile data */
-  const fetchRequests = async () => {
-    // Fetch pending connections where current user is the receiver
-    const { data: connections } = await supabase
-      .from("connections")
-      .select("id, requester_id")
-      .eq("receiver_id", currentUserId)
-      .eq("status", "pending");
-
-    if (!connections || connections.length === 0) {
-      setRequests([]);
-      setLoading(false);
-      return;
-    }
-
-    // Fetch profiles for all requesters
-    const requesterIds = connections.map((c) => c.requester_id);
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("*")
-      .in("id", requesterIds);
-
-    // Merge connection data with profile data
-    const merged = connections.map((conn) => ({
-      ...conn,
-      profile: profiles?.find((p) => p.id === conn.requester_id) as Profile,
-    }));
-
-    const filtered = merged.filter((r) => r.profile);
-
-    // Play notification sound only when new requests arrive (count increased)
-    if (filtered.length > prevCountRef.current && prevCountRef.current !== 0) {
+  // Play sound if the number of requests increased since last render
+  useEffect(() => {
+    if (requests.length > prevCountRef.current && prevCountRef.current !== 0) {
       try {
         const audio = new Audio("/dragon-studio-notification-sound-effect-372475.mp3");
         audio.volume = 0.5;
@@ -70,68 +36,72 @@ export default function PendingRequests({ currentUserId }: PendingRequestsProps)
         // Audio playback not supported — ignore
       }
     }
-    prevCountRef.current = filtered.length;
-
-    setRequests(filtered);
-    setLoading(false);
-  };
+    prevCountRef.current = requests.length;
+  }, [requests.length]);
 
   useEffect(() => {
-    fetchRequests();
+    // 1. Initial manual fetch/sync backwards with Postgres
+    fetchPendingRequests(currentUserId);
 
-    // Subscribe to realtime INSERT events on connections table
+    // 2. Realtime Subscription
+    // No narrow filter — both requester AND receiver must hear about
+    // inserts, updates (accept), and deletes (decline) on the connections table.
     const channel = supabase
       .channel("pending-requests")
       .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "connections",
-        },
-        () => {
-          // Re-fetch on any connection change (insert, update, delete)
-          fetchRequests();
-        }
+        "postgres_changes", 
+        { event: "*", schema: "public", table: "connections" }, 
+        () => fetchPendingRequests(currentUserId)
       )
       .subscribe();
 
     return () => {
       channel.unsubscribe();
     };
+    // NOTE: `supabase` is intentionally excluded — createClient() returns a
+    // singleton, and including it causes subscribe/unsubscribe churn every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUserId]);
+  }, [currentUserId, fetchPendingRequests]);
 
-  /** Accept a connection request */
+  /** Accept a connection request optimistically */
   const handleAccept = async (connectionId: string) => {
+    startTransition(() => {
+      optimisticAcceptRequest(connectionId);
+    });
+
     await supabase
       .from("connections")
       .update({ status: "accepted", updated_at: new Date().toISOString() })
       .eq("id", connectionId);
-
-    // Remove from local state
-    setRequests((prev) => prev.filter((r) => r.id !== connectionId));
   };
 
-  /** Decline (delete) a connection request */
+  /** Decline (delete) a connection request optimistically */
   const handleDecline = async (connectionId: string) => {
+    startTransition(() => {
+      optimisticDeclineRequest(connectionId);
+    });
+
     await supabase.from("connections").delete().eq("id", connectionId);
-    setRequests((prev) => prev.filter((r) => r.id !== connectionId));
   };
 
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const colors = THEME_CONFIG[theme as ThemeType];
 
-  if (loading) {
+  if (isRequestsLoading && requests.length === 0) {
     return (
       <div className="backdrop-blur-sm rounded-2xl p-6" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
         <h2 className="text-lg font-semibold mb-4" style={{ color: colors.textPrimary }}>Pending Requests</h2>
-        <div className="flex items-center justify-center py-4">
-          <svg className="animate-spin h-5 w-5 text-[#09637E]" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
+        <div className="space-y-4">
+          {[1, 2].map(i => (
+            <div key={i} className="flex items-center gap-4 animate-pulse">
+              <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-700"></div>
+              <div className="flex-1 space-y-2">
+                <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-1/3"></div>
+                <div className="h-3 bg-gray-300 dark:bg-gray-700 rounded w-1/4"></div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );

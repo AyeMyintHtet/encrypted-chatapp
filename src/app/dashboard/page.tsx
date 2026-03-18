@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 import { useRouter } from "next/navigation";
 import { usePresence } from "@/hooks/usePresence";
@@ -13,6 +14,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import type { Profile } from "@/lib/types";
+import { Home, Search, User } from "lucide-react";
 
 /**
  * Dashboard — the main hub after login.
@@ -42,9 +44,39 @@ export default function DashboardPage() {
     router.push("/login");
     router.refresh();
   };
-  
+
   // We reinstate showSignOutConfirm because I deleted the hook inadvertently!
   const [showSignOutConfirm, setShowSignOutConfirm] = useState<boolean>(false);
+  const [[activeTab, direction], setActiveTabState] = useState<["home" | "search" | "profile", number]>(["home", 0]);
+
+  const tabSequence = ["home", "search", "profile"];
+
+  const setActiveTab = (newTab: "home" | "search" | "profile") => {
+    const currentIndex = tabSequence.indexOf(activeTab);
+    const newIndex = tabSequence.indexOf(newTab);
+    if (newIndex === currentIndex) return;
+    setActiveTabState([newTab, newIndex > currentIndex ? 1 : -1]);
+  };
+
+  const slideVariants = {
+    enter: (dir: number) => ({
+      x: dir > 0 ? 300 : -300,
+      opacity: 0,
+      scale: 0.98,
+    }),
+    center: {
+      zIndex: 1,
+      x: 0,
+      opacity: 1,
+      scale: 1,
+    },
+    exit: (dir: number) => ({
+      zIndex: 0,
+      x: dir < 0 ? 300 : -300,
+      opacity: 0,
+      scale: 0.98,
+    })
+  };
 
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -97,13 +129,13 @@ export default function DashboardPage() {
 
           <div className="flex items-center gap-2 sm:gap-3">
             {/* User info with status */}
-            <div className="flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-lg" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+            <div className="hidden md:flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-lg" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
               <div className="relative">
                 <div className="w-6 h-6 sm:w-7 sm:h-7 bg-linear-to-br from-[#09637E] to-[#088395] rounded-full flex items-center justify-center text-white font-semibold text-[10px] sm:text-xs">
                   {profile.name.charAt(0).toUpperCase()}
                 </div>
               </div>
-              <div className="hidden md:block">
+              <div className="">
                 <p className="text-sm font-medium" style={{ color: colors.textPrimary }}>{profile.name}</p>
               </div>
             </div>
@@ -129,21 +161,144 @@ export default function DashboardPage() {
       </header>
 
       {/* Main content */}
-      <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-8 max-h-[80dvh]">
-        <div className="grid grid-cols-1 lg:grid-cols-3 md:grid-cols-2 gap-6">
-          {/* Left column: Search + Pending Requests */}
-          <div className="lg:col-span-1 md:col-span-1 space-y-6 hidden md:block ">
+      <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-6 pb-28 md:pb-8 h-full">
+        {/* Desktop View (Grid) */}
+        <div className="hidden md:grid grid-cols-1 lg:grid-cols-3 md:grid-cols-2 gap-6">
+          <div className="lg:col-span-1 md:col-span-1 space-y-6">
             <SearchUsers currentUserId={profile.id} />
             <PendingRequests currentUserId={profile.id} />
           </div>
-
-          {/* Right column: Contacts */}
           <div className="lg:col-span-2 md:col-span-1 col-span-1">
             <ContactsList currentUserId={profile.id} presenceMap={presenceMap} />
           </div>
         </div>
+
+        {/* Mobile View (Tabbed) */}
+        <div className="block md:hidden pb-20 relative overflow-x-hidden">
+          <AnimatePresence mode="popLayout" initial={false} custom={direction}>
+            {activeTab === "home" && (
+              <motion.div
+                key="home"
+                custom={direction}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                className="w-full"
+              >
+                <ContactsList currentUserId={profile.id} presenceMap={presenceMap} />
+              </motion.div>
+            )}
+
+            {activeTab === "search" && (
+              <motion.div
+                key="search"
+                custom={direction}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                className="space-y-6 w-full"
+              >
+                <SearchUsers currentUserId={profile.id} />
+                <PendingRequests currentUserId={profile.id} />
+              </motion.div>
+            )}
+
+            {activeTab === "profile" && (
+              <motion.div
+                key="profile"
+                custom={direction}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                className="w-full"
+              >
+                <div
+                  className="rounded-2xl p-6 shadow-xl flex flex-col items-center gap-4 relative z-10"
+                  style={{ background: colors.surface, border: `1px solid ${colors.border}` }}
+                >
+                  <div className="w-20 h-20 bg-linear-to-br from-[#09637E] to-[#088395] rounded-full flex items-center justify-center shadow-lg">
+                    <span className="text-white text-3xl font-bold">{profile.name.charAt(0).toUpperCase()}</span>
+                  </div>
+                  <div className="text-center">
+                    <h2 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{profile.name}</h2>
+                    <p style={{ color: colors.textTertiary }}>@{profile.username}</p>
+                  </div>
+                  <button
+                    onClick={() => setShowSignOutConfirm(true)}
+                    className="mt-4 px-6 py-2 rounded-full font-medium transition-colors border w-full text-center"
+                    style={{ color: '#EF4444', borderColor: 'rgba(239, 68, 68, 0.2)', background: 'rgba(239, 68, 68, 0.05)' }}
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </main>
 
+      {/* Floating Glassmorphism Bottom Navigation Bar */}
+      <footer className="fixed bottom-6 inset-x-0 z-50 md:hidden flex justify-center pointer-events-none pb-safe">
+        <div
+          className="pointer-events-auto flex items-center justify-center gap-6 px-8 py-3 rounded-full border-t shadow-2xl"
+          style={{
+            background: isDark ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.7)',
+            backdropFilter: 'blur(16px) saturate(150%)',
+            WebkitBackdropFilter: 'blur(16px) saturate(150%)',
+            borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.2)',
+          }}
+        >
+          {([
+            { id: "home", icon: Home },
+            { id: "search", icon: Search },
+            { id: "profile", icon: User }
+          ] as const).map(({ id, icon: Icon }) => {
+            const isActive = activeTab === id;
+            return (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                className="relative flex flex-col items-center justify-center w-12 h-12"
+              >
+                {/* Active Indicator Background */}
+                {isActive && (
+                  <motion.div
+                    layoutId="active-nav-bg"
+                    className={`absolute rounded-full ${isDark ? 'bg-white' : 'bg-black'} z-0 w-10 h-10`}
+                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                  />
+                )}
+
+                {/* Icon */}
+                <Icon
+                  className={`relative z-10 w-6 h-6 transition-colors duration-200 ${isActive
+                    ? (isDark ? 'text-black' : 'text-white')
+                    : 'text-gray-400'
+                    }`}
+                  strokeWidth={2}
+                />
+
+                {/* Blue Dot */}
+                <div className="absolute -bottom-[2px] w-1 h-1 flex items-center justify-center">
+                  {isActive && (
+                    <motion.div
+                      layoutId="active-nav-dot"
+                      className="w-1 h-1 bg-blue-500 rounded-full"
+                      transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                    />
+                  )}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      </footer>
 
       <ConfirmationModal
         isOpen={showSignOutConfirm}
