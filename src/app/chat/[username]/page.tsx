@@ -10,8 +10,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import ThemeToggle from "@/components/ThemeToggle";
 import ConfirmationModal from "@/components/ConfirmationModal";
-import type { Profile, ChatMessage, PresenceStatus } from "@/lib/types";
-import type { RealtimeChannel } from "@supabase/supabase-js";
+import type { ChatMessage, PresenceStatus } from "@/lib/types";
 
 /**
  * Chat page for a specific peer-to-peer conversation.
@@ -26,15 +25,17 @@ export default function ChatPage() {
   // Fetch profiles globally via React Query
   const { data: currentProfile, isLoading: currentLoading } = useCurrentProfile();
   const { data: peerProfile, isLoading: peerLoading } = usePeerProfile(peerUsername);
-  
+
   const loading = currentLoading || peerLoading;
 
   // State
   const [inputValue, setInputValue] = useState("");
   const [showClearChatConfirm, setShowClearChatConfirm] = useState(false);
+  const [viewportHeight, setViewportHeight] = useState("100dvh");
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const channelRef = useRef<import("@supabase/supabase-js").RealtimeChannel | null>(null);
 
   // Initialize chat hook once both profiles are loaded
@@ -57,14 +58,44 @@ export default function ChatPage() {
   };
 
   /** Scroll to the bottom of the messages list */
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    messagesEndRef.current?.scrollIntoView({ behavior, block: "end" });
   }, []);
 
   // Auto-scroll when messages change
   useEffect(() => {
-    scrollToBottom();
+    scrollToBottom("smooth");
   }, [messages, scrollToBottom]);
+
+  // Keep chat viewport aligned with the visible mobile area when keyboard opens.
+  useEffect(() => {
+    const updateViewportHeight = () => {
+      if (window.visualViewport) {
+        setViewportHeight(`${Math.round(window.visualViewport.height)}px`);
+        return;
+      }
+      setViewportHeight(`${window.innerHeight}px`);
+    };
+
+    updateViewportHeight();
+
+    const visualViewport = window.visualViewport;
+    visualViewport?.addEventListener("resize", updateViewportHeight);
+    visualViewport?.addEventListener("scroll", updateViewportHeight);
+    window.addEventListener("resize", updateViewportHeight);
+    window.addEventListener("orientationchange", updateViewportHeight);
+
+    return () => {
+      visualViewport?.removeEventListener("resize", updateViewportHeight);
+      visualViewport?.removeEventListener("scroll", updateViewportHeight);
+      window.removeEventListener("resize", updateViewportHeight);
+      window.removeEventListener("orientationchange", updateViewportHeight);
+    };
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom("auto");
+  }, [viewportHeight, scrollToBottom]);
 
   // Set up Broadcast channel for real-time messaging
   useEffect(() => {
@@ -106,7 +137,7 @@ export default function ChatPage() {
     if (!inputValue.trim() || !currentProfile || !channelRef.current) return;
 
     const message: ChatMessage = {
-      id: crypto.randomUUID(),
+      id: createMessageId(),
       sender_id: currentProfile.id,
       content: inputValue.trim(),
       timestamp: new Date().toISOString(),
@@ -116,11 +147,15 @@ export default function ChatPage() {
     addMessage(message);
     setInputValue("");
 
-    await channelRef.current.send({
-      type: "broadcast",
-      event: "message",
-      payload: message,
-    });
+    try {
+      await channelRef.current.send({
+        type: "broadcast",
+        event: "message",
+        payload: message,
+      });
+    } finally {
+
+    }
   };
 
   /** Handle Enter key to send message */
@@ -129,6 +164,18 @@ export default function ChatPage() {
       e.preventDefault();
       handleSendMessage();
     }
+  };
+
+  const handleInputFocus = () => {
+    window.setTimeout(() => scrollToBottom("auto"), 120);
+  };
+
+
+  /** Lightweight message ID generator for local chat messages */
+  const createMessageId = (): string => {
+    const timePart = Date.now().toString(36);
+    const randomPart = Math.random().toString(36).slice(2, 10);
+    return `msg_${timePart}_${randomPart}`;
   };
 
   /** Format timestamp for display */
@@ -166,7 +213,10 @@ export default function ChatPage() {
       peerStatus === "idle" ? "Idle" : "Offline";
 
   return (
-    <div className="h-screen flex flex-col" style={{ background: colors.backgroundSolid }}>
+    <div
+      className="h-[100dvh] flex flex-col overflow-hidden"
+      style={{ background: colors.backgroundSolid, height: viewportHeight }}
+    >
       {/* Ambient background glow */}
       {isDark && (
         <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -176,7 +226,7 @@ export default function ChatPage() {
       )}
 
       {/* Chat header */}
-      <header className="relative z-10 backdrop-blur-md" style={{ background: isDark ? "rgba(3,7,18,0.8)" : "rgba(239,233,227,0.8)", borderBottom: `1px solid ${colors.borderMuted}` }}>
+      <header className="relative z-10 shrink-0 backdrop-blur-md" style={{ background: isDark ? "rgba(3,7,18,0.8)" : "rgba(239,233,227,0.8)", borderBottom: `1px solid ${colors.borderMuted}` }}>
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Back button */}
@@ -230,7 +280,7 @@ export default function ChatPage() {
       </header>
 
       {/* Messages area */}
-      <main className="relative z-10 flex-1 overflow-y-auto" style={{ background: isDark ? "#111827" : colors.surface }}>
+      <main className="relative z-10 flex-1 min-h-0 overflow-y-auto overscroll-contain" style={{ background: isDark ? "#111827" : colors.surface }}>
         <div className="max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-3 sm:space-y-4">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full min-h-[250px] sm:min-h-[300px] text-center">
@@ -271,7 +321,7 @@ export default function ChatPage() {
       </main>
 
       {/* Message input */}
-      <footer className="relative z-10 backdrop-blur-md" style={{ background: isDark ? "rgba(3,7,18,0.8)" : "rgba(239,233,227,0.8)", borderTop: `1px solid ${colors.borderMuted}` }}>
+      <footer className="safe-bottom-area relative z-10 shrink-0 backdrop-blur-md" style={{ background: isDark ? "rgba(3,7,18,0.8)" : "rgba(239,233,227,0.8)", borderTop: `1px solid ${colors.borderMuted}` }}>
         <div className="max-w-4xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
           {/* Offline banner — show when peer is not in this chat */}
           {isPeerOffline && (
@@ -284,18 +334,23 @@ export default function ChatPage() {
           )}
           <div className="flex items-center gap-2 sm:gap-3">
             <input
+              ref={inputRef}
               type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
+              onFocus={handleInputFocus}
               placeholder={isPeerOffline ? `${peerProfile.name} is offline...` : "Type a message..."}
-              disabled={isPeerOffline}
+              readOnly={isPeerOffline}
+              enterKeyHint="send"
               className={`flex-1 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#09637E]/50 focus:border-[#09637E]/50 transition-all text-xs sm:text-sm ${isPeerOffline ? "opacity-50 cursor-not-allowed" : ""}`}
               style={{ background: colors.inputBg, border: `1px solid ${colors.border}`, color: colors.textPrimary }}
-              autoFocus
             />
             <button
               onClick={handleSendMessage}
+              onPointerDown={(e) => {
+                e.preventDefault();
+              }}
               disabled={!inputValue.trim() || isPeerOffline}
               className="p-2.5 sm:p-3 bg-linear-to-r from-[#09637E] to-[#088395] hover:from-[#0a7490] hover:to-[#099aaa] text-white rounded-xl transition-all shadow-lg shadow-[#09637E]/25 hover:shadow-[#09637E]/40 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
             >
