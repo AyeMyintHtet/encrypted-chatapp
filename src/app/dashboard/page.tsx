@@ -233,7 +233,7 @@ export default function DashboardPage() {
                   </div>
                   <button
                     onClick={() => setShowSignOutConfirm(true)}
-                    className="mt-4 px-6 py-2 rounded-full font-medium transition-colors border w-full text-center"
+                    className="cursor-pointer mt-4 px-6 py-2 rounded-full font-medium transition-colors border w-full text-center"
                     style={{ color: '#EF4444', borderColor: 'rgba(239, 68, 68, 0.2)', background: 'rgba(239, 68, 68, 0.05)' }}
                   >
                     Sign Out

@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useActionState, useState, type ComponentProps } from "react";
 import { useRouter } from "next/navigation";
+import { useFormStatus } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
@@ -25,6 +26,54 @@ const PRIMARY_BUTTON_CLASS_NAME =
 const FLEX_PRIMARY_BUTTON_CLASS_NAME =
   "flex-1 py-3 bg-linear-to-r from-[#09637E] to-[#088395] hover:from-[#0a7490] hover:to-[#099aaa] text-white font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-[#09637E]/25 hover:shadow-[#09637E]/40 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer";
 
+type AuthActionState = {
+  error: string | null;
+};
+
+const INITIAL_AUTH_ACTION_STATE: AuthActionState = { error: null };
+
+type SubmitButtonProps = {
+  className: string;
+  idleText: string;
+  pendingText: string;
+};
+
+function SubmitButton({ className, idleText, pendingText }: SubmitButtonProps) {
+  const { pending } = useFormStatus();
+
+  return (
+    <button type="submit" disabled={pending} className={className}>
+      {pending ? (
+        <span className="flex items-center justify-center gap-2">
+          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          {pendingText}
+        </span>
+      ) : (
+        idleText
+      )}
+    </button>
+  );
+}
+
+type PendingInputProps = ComponentProps<"input">;
+
+function PendingInput({ disabled, ...props }: PendingInputProps) {
+  const { pending } = useFormStatus();
+
+  return <input {...props} disabled={pending || disabled} />;
+}
+
+type PendingButtonProps = ComponentProps<"button">;
+
+function PendingButton({ disabled, ...props }: PendingButtonProps) {
+  const { pending } = useFormStatus();
+
+  return <button {...props} disabled={pending || disabled} />;
+}
+
 export default function AuthPage({ mode }: AuthPageProps) {
   const router = useRouter();
   const supabase = createClient();
@@ -38,59 +87,55 @@ export default function AuthPage({ mode }: AuthPageProps) {
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [emailStepError, setEmailStepError] = useState<string | null>(null);
 
   const handleEmailNext = () => {
     const safeEmail = email.trim();
     if (!safeEmail) {
-      setError("Email is required");
+      setEmailStepError("Email is required");
       return;
     }
 
     if (safeEmail.length > 255) {
-      setError("Email length exceeds maximum allowed limit.");
+      setEmailStepError("Email length exceeds maximum allowed limit.");
       return;
     }
 
     if (MALICIOUS_PATTERN.test(safeEmail)) {
-      setError("Invalid characters detected in email. Symbols like <, >, ', \", ; are not allowed.");
+      setEmailStepError("Invalid characters detected in email. Symbols like <, >, ', \", ; are not allowed.");
       return;
     }
 
     if (!EMAIL_REGEX.test(safeEmail)) {
-      setError("Please enter a valid email address");
+      setEmailStepError("Please enter a valid email address");
       return;
     }
 
-    setError(null);
+    setEmailStepError(null);
     setStep(2);
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
+  const handleLogin = async (_prevState: AuthActionState, formData: FormData): Promise<AuthActionState> => {
+    const identifierValue = formData.get("identifier");
+    const passwordValue = formData.get("password");
 
-    const safeIdentifier = identifier.trim();
-    const safePassword = password.trim();
+    if (typeof identifierValue !== "string" || typeof passwordValue !== "string") {
+      return { error: "Please fill in all fields" };
+    }
+
+    const safeIdentifier = identifierValue.trim();
+    const safePassword = passwordValue.trim();
 
     if (!safeIdentifier || !safePassword) {
-      setError("Please fill in all fields");
-      setLoading(false);
-      return;
+      return { error: "Please fill in all fields" };
     }
 
     if (safeIdentifier.length > 255 || safePassword.length > 255) {
-      setError("Input length exceeds maximum allowed limit.");
-      setLoading(false);
-      return;
+      return { error: "Input length exceeds maximum allowed limit." };
     }
 
     if (MALICIOUS_PATTERN.test(safeIdentifier)) {
-      setError("Invalid characters detected in the input. Symbols like <, >, ', \", ; are not allowed.");
-      setLoading(false);
-      return;
+      return { error: "Invalid characters detected in the input. Symbols like <, >, ', \", ; are not allowed." };
     }
 
     try {
@@ -104,9 +149,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
           .maybeSingle();
 
         if (profileError || !profile) {
-          setError("No account found with that username");
-          setLoading(false);
-          return;
+          return { error: "No account found with that username" };
         }
 
         loginEmail = profile.email;
@@ -114,62 +157,67 @@ export default function AuthPage({ mode }: AuthPageProps) {
 
       const { error: authError } = await supabase.auth.signInWithPassword({
         email: loginEmail,
-        password,
+        password: safePassword,
       });
 
       if (authError) {
-        setError(authError.message);
-        setLoading(false);
-        return;
+        return { error: authError.message };
       }
 
       router.push("/dashboard");
       router.refresh();
+      return { error: null };
     } catch {
-      setError("An unexpected error occurred. Please try again.");
-    } finally {
-      setLoading(false);
+      return { error: "An unexpected error occurred. Please try again." };
     }
   };
 
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
+  const handleSignup = async (_prevState: AuthActionState, formData: FormData): Promise<AuthActionState> => {
+    const nameValue = formData.get("name");
+    const usernameValue = formData.get("username");
+    const passwordValue = formData.get("password");
+    const emailValue = formData.get("email");
 
-    const safeName = name.trim();
-    const safeUsername = username.trim();
-    const safePassword = password.trim();
-    const safeEmail = email.trim();
-
-    if (!safeName || !safeUsername || !safePassword) {
-      setError("All fields are required");
-      setLoading(false);
-      return;
+    if (
+      typeof nameValue !== "string" ||
+      typeof usernameValue !== "string" ||
+      typeof passwordValue !== "string" ||
+      typeof emailValue !== "string"
+    ) {
+      return { error: "All fields are required" };
     }
 
-    if (safeName.length > 100 || safeUsername.length > 50 || safePassword.length > 255) {
-      setError("Input length exceeds maximum allowed limit.");
-      setLoading(false);
-      return;
+    const safeName = nameValue.trim();
+    const safeUsername = usernameValue.trim();
+    const safePassword = passwordValue.trim();
+    const safeEmail = emailValue.trim();
+
+    if (!safeName || !safeUsername || !safePassword || !safeEmail) {
+      return { error: "All fields are required" };
+    }
+
+    if (safeName.length > 100 || safeUsername.length > 50 || safePassword.length > 255 || safeEmail.length > 255) {
+      return { error: "Input length exceeds maximum allowed limit." };
+    }
+
+    if (MALICIOUS_PATTERN.test(safeEmail)) {
+      return { error: "Invalid characters detected in email. Symbols like <, >, ', \", ; are not allowed." };
+    }
+
+    if (!EMAIL_REGEX.test(safeEmail)) {
+      return { error: "Please enter a valid email address" };
     }
 
     if (MALICIOUS_PATTERN.test(safeName)) {
-      setError("Invalid characters detected in full name. Symbols like <, >, ', \", ; are not allowed.");
-      setLoading(false);
-      return;
+      return { error: "Invalid characters detected in full name. Symbols like <, >, ', \", ; are not allowed." };
     }
 
     if (safePassword.length < 6) {
-      setError("Password must be at least 6 characters");
-      setLoading(false);
-      return;
+      return { error: "Password must be at least 6 characters" };
     }
 
     if (!/^[a-zA-Z0-9_]+$/.test(safeUsername)) {
-      setError("Username can only contain letters, numbers, and underscores");
-      setLoading(false);
-      return;
+      return { error: "Username can only contain letters, numbers, and underscores" };
     }
 
     try {
@@ -180,9 +228,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
         .maybeSingle();
 
       if (existingUser) {
-        setError("Username is already taken");
-        setLoading(false);
-        return;
+        return { error: "Username is already taken" };
       }
 
       const { error: authError } = await supabase.auth.signUp({
@@ -197,19 +243,21 @@ export default function AuthPage({ mode }: AuthPageProps) {
       });
 
       if (authError) {
-        setError(authError.message);
-        setLoading(false);
-        return;
+        return { error: authError.message };
       }
 
       router.push("/dashboard");
       router.refresh();
+      return { error: null };
     } catch {
-      setError("An unexpected error occurred. Please try again.");
-    } finally {
-      setLoading(false);
+      return { error: "An unexpected error occurred. Please try again." };
     }
   };
+
+  const [loginState, loginFormAction] = useActionState(handleLogin, INITIAL_AUTH_ACTION_STATE);
+  const [signupState, signupFormAction] = useActionState(handleSignup, INITIAL_AUTH_ACTION_STATE);
+
+  const error = isSignup ? (step === 1 ? emailStepError : signupState.error) : loginState.error;
 
   return (
     <div
@@ -297,7 +345,12 @@ export default function AuthPage({ mode }: AuthPageProps) {
                     type="email"
                     maxLength={255}
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (emailStepError) {
+                        setEmailStepError(null);
+                      }
+                    }}
                     onKeyDown={(e) => e.key === "Enter" && handleEmailNext()}
                     placeholder="you@example.com"
                     className={INPUT_CLASS_NAME}
@@ -310,13 +363,15 @@ export default function AuthPage({ mode }: AuthPageProps) {
                 </button>
               </div>
             ) : (
-              <form onSubmit={handleSignup} className="space-y-4">
+              <form action={signupFormAction} className="space-y-4">
+                <input type="hidden" name="email" value={email} />
                 <div>
                   <label htmlFor="name" className="block text-sm font-medium mb-1.5" style={{ color: colors.textSecondary }}>
                     Full Name
                   </label>
-                  <input
+                  <PendingInput
                     id="name"
+                    name="name"
                     type="text"
                     maxLength={100}
                     value={name}
@@ -331,8 +386,9 @@ export default function AuthPage({ mode }: AuthPageProps) {
                   <label htmlFor="username" className="block text-sm font-medium mb-1.5" style={{ color: colors.textSecondary }}>
                     Username
                   </label>
-                  <input
+                  <PendingInput
                     id="username"
+                    name="username"
                     type="text"
                     maxLength={50}
                     value={username}
@@ -346,8 +402,9 @@ export default function AuthPage({ mode }: AuthPageProps) {
                   <label htmlFor="password" className="block text-sm font-medium mb-1.5" style={{ color: colors.textSecondary }}>
                     Password
                   </label>
-                  <input
+                  <PendingInput
                     id="password"
+                    name="password"
                     type="password"
                     maxLength={255}
                     value={password}
@@ -359,41 +416,30 @@ export default function AuthPage({ mode }: AuthPageProps) {
                 </div>
 
                 <div className="flex gap-3">
-                  <button
+                  <PendingButton
                     type="button"
                     onClick={() => {
                       setStep(1);
-                      setError(null);
+                      setEmailStepError(null);
                     }}
-                    className="px-4 py-3 border text-gray-300 rounded-xl transition-all cursor-pointer"
+                    className="px-4 py-3 border text-gray-300 rounded-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ background: colors.surface, borderColor: colors.border, color: colors.textSecondary }}
                   >
                     Back
-                  </button>
-                  <button type="submit" disabled={loading} className={FLEX_PRIMARY_BUTTON_CLASS_NAME}>
-                    {loading ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                        </svg>
-                        Creating...
-                      </span>
-                    ) : (
-                      "Create Account"
-                    )}
-                  </button>
+                  </PendingButton>
+                  <SubmitButton className={FLEX_PRIMARY_BUTTON_CLASS_NAME} idleText="Create Account" pendingText="Creating..." />
                 </div>
               </form>
             )
           ) : (
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form action={loginFormAction} className="space-y-4">
               <div>
                 <label htmlFor="identifier" className="block text-sm font-medium mb-1.5" style={{ color: colors.textSecondary }}>
                   Email or Username
                 </label>
-                <input
+                <PendingInput
                   id="identifier"
+                  name="identifier"
                   type="text"
                   maxLength={255}
                   value={identifier}
@@ -408,8 +454,9 @@ export default function AuthPage({ mode }: AuthPageProps) {
                 <label htmlFor="password" className="block text-sm font-medium mb-1.5" style={{ color: colors.textSecondary }}>
                   Password
                 </label>
-                <input
+                <PendingInput
                   id="password"
+                  name="password"
                   type="password"
                   maxLength={255}
                   value={password}
@@ -420,19 +467,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
                 />
               </div>
 
-              <button type="submit" disabled={loading} className={PRIMARY_BUTTON_CLASS_NAME}>
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    Signing in...
-                  </span>
-                ) : (
-                  "Sign In"
-                )}
-              </button>
+              <SubmitButton className={PRIMARY_BUTTON_CLASS_NAME} idleText="Sign In" pendingText="Signing in..." />
             </form>
           )}
 
