@@ -74,7 +74,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${playfair.variable} ${outfit.variable} ${robotoSlab.variable} font-sans antialiased`}>
+      <body className={`${inter.variable} ${playfair.variable} ${outfit.variable} ${robotoSlab.variable} font-sans antialiased overflow-hidden`}>
         <QueryProvider>
           <ThemeProvider>
             <OfflineOverlay />

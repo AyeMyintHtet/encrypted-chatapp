@@ -10,5 +10,5 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <div className="safe-bottom-area">{children}</div>;
+  return <>{children}</>;
 }

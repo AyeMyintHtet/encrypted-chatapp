@@ -105,7 +105,7 @@ export default function DashboardPage() {
       myStatus === "idle" ? "Idle" : "Offline";
 
   return (
-    <div className="min-h-screen " style={{ background: colors.background }}>
+    <div className="" style={{ background: colors.background }}>
       {/* Ambient background glow */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full blur-[120px]" style={{ background: colors.glow1 }} />
@@ -161,7 +161,7 @@ export default function DashboardPage() {
       </header>
 
       {/* Main content */}
-      <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-6 pb-28 md:pb-8 h-full">
+      <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-6 pb-28 md:pb-8 min-h-screen">
         {/* Desktop View (Grid) */}
         <div className="hidden md:grid grid-cols-1 lg:grid-cols-3 md:grid-cols-2 gap-6">
           <div className="lg:col-span-1 md:col-span-1 space-y-6">
@@ -174,7 +174,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Mobile View (Tabbed) */}
-        <div className="block md:hidden pb-20 relative overflow-x-hidden">
+        <div className="block md:hidden pb-20 relative overflow-x-hidden safe-bottom-area">
           <AnimatePresence mode="popLayout" initial={false} custom={direction}>
             {activeTab === "home" && (
               <motion.div
@@ -190,7 +190,6 @@ export default function DashboardPage() {
                 <ContactsList currentUserId={profile.id} presenceMap={presenceMap} />
               </motion.div>
             )}
-
             {activeTab === "search" && (
               <motion.div
                 key="search"
