@@ -24,7 +24,7 @@ const outfit = Outfit({
   weight: ["300", "400", "500", "600"],
 });
 
-// Bold slab-serif for the "Kito" brand name
+// Bold slab-serif for the "CQgram" brand name
 const robotoSlab = Roboto_Slab({
   variable: "--font-roboto-slab",
   subsets: ["latin"],
@@ -33,25 +33,25 @@ const robotoSlab = Roboto_Slab({
 
 export const metadata: Metadata = {
   title: {
-    default: "Kito | Secure P2P Encrypted Messaging",
-    template: "%s | Kito",
+    default: "CQgram | Secure P2P Encrypted Messaging",
+    template: "%s | CQgram",
   },
-  description: "Experience ultimate privacy with Kito. Real-time, peer-to-peer encrypted messaging built with Next.js and Supabase.",
+  description: "Experience ultimate privacy with CQgram. Real-time, peer-to-peer encrypted messaging built with Next.js and Supabase.",
   keywords: ["chat", "encrypted", "p2p", "real-time", "privacy", "secure messaging", "supabase", "nextjs"],
-  authors: [{ name: "Kito Team" }],
-  creator: "Kito Team",
+  authors: [{ name: "CQgram Team" }],
+  creator: "CQgram Team",
   metadataBase: new URL("https://chatapp-encrypted.vercel.app"), // Replace with your actual domain
   openGraph: {
     type: "website",
     locale: "en_US",
     url: "https://chatapp-encrypted.vercel.app",
-    title: "Kito | Secure P2P Encrypted Messaging",
+    title: "CQgram | Secure P2P Encrypted Messaging",
     description: "Secure, real-time, peer-to-peer encrypted messaging.",
-    siteName: "Kito",
+    siteName: "CQgram",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Kito | Secure P2P Encrypted Messaging",
+    title: "CQgram | Secure P2P Encrypted Messaging",
     description: "Secure, real-time, peer-to-peer encrypted messaging.",
   },
   icons: {
@@ -63,7 +63,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Kito",
+    title: "CQgram",
   },
 };
 

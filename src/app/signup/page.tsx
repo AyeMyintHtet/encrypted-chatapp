@@ -171,7 +171,7 @@ export default function SignupPage() {
             <div className="flex justify-center mb-4 sm:mb-5">
               <img
                 src="/logoo.png"
-                alt="Kito — Secure Encrypted Chat"
+                alt="CQgram — Secure Encrypted Chat"
                 className="w-16 h-16 sm:w-20 sm:h-20 drop-shadow-[0_0_20px_rgba(9,99,126,0.4)] transition-transform duration-500 hover:scale-110"
               />
             </div>

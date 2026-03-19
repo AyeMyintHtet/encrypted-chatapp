@@ -1,7 +1,7 @@
 {
-  "name": "Kito — Messaging",
-  "short_name": "Kito",
-  "description": "Experience ultimate privacy with Kito. Real-time, peer-to-peer encrypted messaging with end-to-end encryption.",
+  "name": "CQgram",
+  "short_name": "CQgram",
+  "description": "Experience ultimate privacy with CQgram. Real-time, peer-to-peer encrypted messaging with end-to-end encryption.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",

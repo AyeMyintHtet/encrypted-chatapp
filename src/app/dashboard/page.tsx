@@ -15,6 +15,7 @@ import ConfirmationModal from "@/components/ConfirmationModal";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import type { Profile } from "@/lib/types";
 import { Home, Search, User } from "lucide-react";
+import Image from "next/image";
 
 /**
  * Dashboard — the main hub after login.
@@ -115,14 +116,16 @@ export default function DashboardPage() {
       {/* Top bar */}
       <header className="relative z-10" style={{ borderBottom: `1px solid ${colors.borderMuted}` }}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-linear-to-br from-[#09637E] to-[#088395] rounded-xl flex items-center justify-center shadow-lg shadow-[#09637E]/25">
-              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-            </div>
-            <div>
-              <h1 className="font-bold text-lg" style={{ color: colors.textPrimary }}>Kito</h1>
+          <div className="flex items-center">
+            <Image
+              src="/logoo.png"
+              width={100}
+              height={100}
+              alt="Logo"
+              className="-ml-5"
+            />
+            <div className="-ml-5">
+              <h1 className="font-bold text-lg" style={{ color: colors.textPrimary }}>CQgram</h1>
               <p style={{ color: colors.textTertiary }} className="text-xs hidden sm:block">Encrypted P2P Messaging</p>
             </div>
           </div>

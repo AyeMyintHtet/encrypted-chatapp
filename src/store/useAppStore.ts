@@ -207,7 +207,7 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'kito-app-store',
+      name: 'CQgram-app-store',
       // Only persist contacts for instant first-paint.
       // pendingRequests is intentionally excluded — it's transient data that
       // must always come fresh from the server to avoid stale-cache ghosts

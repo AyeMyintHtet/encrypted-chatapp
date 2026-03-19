@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { createClient } from "@/lib/supabase/client";
 import { useLocalChat } from "@/hooks/useLocalChat";
 import { usePresence } from "@/hooks/usePresence";
@@ -34,7 +35,7 @@ export default function ChatPage() {
   const [viewportHeight, setViewportHeight] = useState("100dvh");
 
   // Refs
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const virtuosoRef = useRef<VirtuosoHandle>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const channelRef = useRef<import("@supabase/supabase-js").RealtimeChannel | null>(null);
 
@@ -58,9 +59,17 @@ export default function ChatPage() {
   };
 
   /** Scroll to the bottom of the messages list */
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
-    messagesEndRef.current?.scrollIntoView({ behavior, block: "end" });
-  }, []);
+  const scrollToBottom = useCallback(
+    (behavior: "smooth" | "auto" = "smooth") => {
+      if (messages.length === 0) return;
+      virtuosoRef.current?.scrollToIndex({
+        index: messages.length - 1,
+        align: "end",
+        behavior,
+      });
+    },
+    [messages.length]
+  );
 
   // Auto-scroll when messages change
   useEffect(() => {
@@ -280,9 +289,9 @@ export default function ChatPage() {
       </header>
 
       {/* Messages area */}
-      <main className="relative z-10 flex-1 min-h-0 overflow-y-auto overscroll-contain" style={{ background: isDark ? "#111827" : colors.surface }}>
-        <div className="max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-3 sm:space-y-4">
-          {messages.length === 0 ? (
+      <main className="relative z-10 flex-1 min-h-0 overflow-hidden overscroll-contain" style={{ background: isDark ? "#111827" : colors.surface }}>
+        {messages.length === 0 ? (
+          <div className="max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
             <div className="flex flex-col items-center justify-center h-full min-h-[250px] sm:min-h-[300px] text-center">
               <div className="w-12 h-12 sm:w-16 sm:h-16 bg-linear-to-br from-[#09637E]/20 to-[#088395]/20 rounded-2xl flex items-center justify-center mb-4">
                 <svg className="w-6 h-6 sm:w-8 sm:h-8 text-[#09637E]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -292,32 +301,37 @@ export default function ChatPage() {
               <p className="text-xs sm:text-sm" style={{ color: colors.textPrimary }}>No messages yet</p>
               <p className="text-[10px] sm:text-xs mt-1" style={{ color: colors.textTertiary }}>Send a message to start the conversation</p>
             </div>
-          ) : (
-            messages.map((msg) => {
+          </div>
+        ) : (
+          <Virtuoso
+            ref={virtuosoRef}
+            className="h-full"
+            data={messages}
+            followOutput="smooth"
+            overscan={200}
+            itemContent={(_, msg) => {
               const isOwn = msg.sender_id === currentProfile.id;
               return (
-                <div
-                  key={msg.id}
-                  className={`flex ${isOwn ? "justify-end" : "justify-start"}`}
-                >
-                  <div
-                    className={`max-w-[85%] sm:max-w-[70%] md:max-w-[60%] px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl ${isOwn
-                      ? "bg-linear-to-r from-[#09637E] to-[#088395] text-white rounded-br-md shadow-sm"
-                      : "rounded-bl-md shadow-xs"
-                      }`}
-                    style={!isOwn ? { background: colors.surfaceHover, color: colors.textPrimary } : {}}
-                  >
-                    <p className="text-xs sm:text-sm whitespace-pre-wrap break-words leading-relaxed">{msg.content}</p>
-                    <p className={`text-[9px] sm:text-[10px] mt-1 text-right sm:text-left ${isOwn ? "text-white/60" : ""}`} style={!isOwn ? { color: colors.textSecondary } : {}}>
-                      {formatTime(msg.timestamp)}
-                    </p>
+                <div className="max-w-4xl mx-auto px-3 sm:px-4 py-1.5 sm:py-2">
+                  <div className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
+                    <div
+                      className={`max-w-[85%] sm:max-w-[70%] md:max-w-[60%] px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl ${isOwn
+                        ? "bg-linear-to-r from-[#09637E] to-[#088395] text-white rounded-br-md shadow-sm"
+                        : "rounded-bl-md shadow-xs"
+                        }`}
+                      style={!isOwn ? { background: colors.surfaceHover, color: colors.textPrimary } : {}}
+                    >
+                      <p className="text-xs sm:text-sm whitespace-pre-wrap break-words leading-relaxed">{msg.content}</p>
+                      <p className={`text-[9px] sm:text-[10px] mt-1 text-right sm:text-left ${isOwn ? "text-white/60" : ""}`} style={!isOwn ? { color: colors.textSecondary } : {}}>
+                        {formatTime(msg.timestamp)}
+                      </p>
+                    </div>
                   </div>
                 </div>
               );
-            })
-          )}
-          <div ref={messagesEndRef} />
-        </div>
+            }}
+          />
+        )}
       </main>
 
       {/* Message input */}
