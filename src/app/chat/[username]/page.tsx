@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
-import { Trash2 } from "lucide-react";
+import { ArrowBigLeft, ArrowBigRight, ArrowRightCircle, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useLocalChat } from "@/hooks/useLocalChat";
 import { usePresence } from "@/hooks/usePresence";
@@ -78,10 +78,19 @@ export default function ChatPage() {
   }, [messages, scrollToBottom]);
 
   // Keep chat viewport aligned with the visible mobile area when keyboard opens.
+  // iOS Safari scrolls the document body when the keyboard appears, so we
+  // force-reset scroll position and use visualViewport.offsetTop to stay pinned.
   useEffect(() => {
     const updateViewportHeight = () => {
       if (window.visualViewport) {
-        setViewportHeight(`${Math.round(window.visualViewport.height)}px`);
+        const vv = window.visualViewport;
+        setViewportHeight(`${Math.round(vv.height)}px`);
+
+        // iOS scrolls the page behind the app when the keyboard opens.
+        // Pin it back to the top so our fixed layout stays visible.
+        window.scrollTo(0, 0);
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
         return;
       }
       setViewportHeight(`${window.innerHeight}px`);
@@ -89,15 +98,15 @@ export default function ChatPage() {
 
     updateViewportHeight();
 
-    const visualViewport = window.visualViewport;
-    visualViewport?.addEventListener("resize", updateViewportHeight);
-    visualViewport?.addEventListener("scroll", updateViewportHeight);
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", updateViewportHeight);
+    vv?.addEventListener("scroll", updateViewportHeight);
     window.addEventListener("resize", updateViewportHeight);
     window.addEventListener("orientationchange", updateViewportHeight);
 
     return () => {
-      visualViewport?.removeEventListener("resize", updateViewportHeight);
-      visualViewport?.removeEventListener("scroll", updateViewportHeight);
+      vv?.removeEventListener("resize", updateViewportHeight);
+      vv?.removeEventListener("scroll", updateViewportHeight);
       window.removeEventListener("resize", updateViewportHeight);
       window.removeEventListener("orientationchange", updateViewportHeight);
     };
@@ -177,7 +186,15 @@ export default function ChatPage() {
   };
 
   const handleInputFocus = () => {
-    window.setTimeout(() => scrollToBottom("auto"), 120);
+    // iOS scrolls the body when focusing an input. Reset scroll and
+    // re-align the chat list after a short delay for the keyboard animation.
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    window.setTimeout(() => {
+      window.scrollTo(0, 0);
+      scrollToBottom("auto");
+    }, 120);
   };
 
 
@@ -370,9 +387,7 @@ export default function ChatPage() {
               disabled={!inputValue.trim() || isPeerOffline}
               className="p-2.5 sm:p-3 bg-linear-to-r from-[#09637E] to-[#088395] hover:from-[#0a7490] hover:to-[#099aaa] text-white rounded-xl transition-all shadow-lg shadow-[#09637E]/25 hover:shadow-[#09637E]/40 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
             >
-              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-              </svg>
+              <ArrowRightCircle />
             </button>
           </div>
         </div>
