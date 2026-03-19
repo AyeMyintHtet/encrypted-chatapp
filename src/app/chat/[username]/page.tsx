@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
+import { Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useLocalChat } from "@/hooks/useLocalChat";
 import { usePresence } from "@/hooks/usePresence";
@@ -278,10 +279,11 @@ export default function ChatPage() {
             {messages.length >= 1 && (
               <button
                 onClick={() => setShowClearChatConfirm(true)}
-                className="px-2 sm:px-3 py-1.5 text-[10px] sm:text-xs text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-lg transition-all cursor-pointer whitespace-nowrap"
+                aria-label="Clear all chat"
+                title="Clear all chat"
+                className="p-2 text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-lg transition-all cursor-pointer"
               >
-                <span className="hidden sm:inline">Clear All Chat</span>
-                <span className="sm:hidden">Clear</span>
+                <Trash2 className="w-4 h-4" />
               </button>
             )}
           </div>

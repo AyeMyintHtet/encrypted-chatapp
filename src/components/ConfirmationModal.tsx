@@ -53,6 +53,9 @@ export default function ConfirmationModal({
             {message}
           </p>
 
+          <input type="checkbox" id="clear-chat" className="mr-2 mb-5" />
+          <label htmlFor="clear-chat" className="text-sm leading-relaxed" style={{ color: colors.textPrimary }}>Also Delete in Peer's Chat</label>
+
           <div className="flex flex-row gap-3">
             <button
               onClick={onClose}
