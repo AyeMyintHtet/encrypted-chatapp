@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, useTransition, useOptimistic } from "react";
+import { useState, useCallback, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import ConfirmationModal from "@/components/ConfirmationModal";
-import type { Profile, UserPresence } from "@/lib/types";
+import type { UserPresence } from "@/lib/types";
 import { Virtuoso } from "react-virtuoso";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -20,9 +20,9 @@ export default function ContactsList({ currentUserId, presenceMap }: ContactsLis
   const router = useRouter();
 
   // Local-first persistence
-  const { contacts, isContactsLoading, fetchContacts, optimisticClearContacts } = useAppStore();
+  const { contacts, isContactsLoading, optimisticClearContacts } = useAppStore();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   /** Delete all accepted connections optimistically */
   const clearAllContacts = useCallback(async () => {
@@ -37,29 +37,6 @@ export default function ContactsList({ currentUserId, presenceMap }: ContactsLis
       supabase.from("connections").delete().eq("status", "accepted").eq("receiver_id", currentUserId)
     ]);
   }, [currentUserId, supabase, optimisticClearContacts]);
-
-  useEffect(() => {
-    // Fire the background sync fetch. Will not show spinner if data exists in store!
-    fetchContacts(currentUserId);
-
-    // Subscribe to connection status changes
-    // Using a single wildcard event listener is more reliable than multiple chained event filters.
-    const channel = supabase
-      .channel("contacts-updates")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "connections" },
-        () => fetchContacts(currentUserId)
-      )
-      .subscribe();
-
-    return () => {
-      channel.unsubscribe();
-    };
-    // NOTE: `supabase` is intentionally excluded — createClient() returns a
-    // singleton, and including it causes subscribe/unsubscribe churn every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUserId, fetchContacts]);
 
   /** Get presence status dot color */
   const getStatusColor = (userId: string): string => {
@@ -90,7 +67,6 @@ export default function ContactsList({ currentUserId, presenceMap }: ContactsLis
   };
 
   const { theme } = useTheme();
-  const isDark = theme === "dark";
   const colors = THEME_CONFIG[theme as ThemeType];
 
   // Only show shimmering skeletons if store is COMPLETELY empty on first load.

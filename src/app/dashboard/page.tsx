@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { useRouter } from "next/navigation";
 import { usePresence } from "@/hooks/usePresence";
+import { useConnectionsSync } from "@/hooks/useConnectionsSync";
 import { useCurrentProfile } from "@/hooks/useProfile";
 import { useTheme } from "@/context/ThemeContext";
 import SearchUsers from "@/components/SearchUsers";
@@ -13,7 +14,7 @@ import ContactsList from "@/components/ContactsList";
 import ThemeToggle from "@/components/ThemeToggle";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
-import type { Profile } from "@/lib/types";
+import { useAppStore } from "@/store/useAppStore";
 import { Home, Search, User } from "lucide-react";
 import Image from "next/image";
 
@@ -26,11 +27,18 @@ export default function DashboardPage() {
 
   // Fetch current user's profile using centralized React Query hook
   const { data: profile, isLoading: loading } = useCurrentProfile();
+  const contacts = useAppStore((state) => state.contacts);
+  const watchedUserIds = useMemo(() => contacts.map((contact) => contact.id), [contacts]);
+
+  // Centralized, filtered realtime sync for contacts + pending requests.
+  useConnectionsSync(profile?.id ?? "");
 
   // Initialize presence tracking — no chatWith, so our status is "offline" here
-  const { presenceMap, myStatus } = usePresence(
+  const { presenceMap } = usePresence(
     profile?.id ?? "",
-    profile?.username ?? ""
+    profile?.username ?? "",
+    undefined,
+    watchedUserIds
     // No chatWith = we're on dashboard, so status = "offline"
   );
 
@@ -96,15 +104,6 @@ export default function DashboardPage() {
 
   if (!profile) return null;
 
-  /** Get status color for own status indicator */
-  const statusColor =
-    myStatus === "active" ? "bg-emerald-500" :
-      myStatus === "idle" ? "bg-amber-500" : "bg-gray-500";
-
-  const statusLabel =
-    myStatus === "active" ? "Active" :
-      myStatus === "idle" ? "Idle" : "Offline";
-
   return (
     <div className="" style={{ background: colors.background }}>
       {/* Ambient background glow */}
@@ -169,7 +168,7 @@ export default function DashboardPage() {
         <div className="hidden md:grid grid-cols-1 lg:grid-cols-3 md:grid-cols-2 gap-6">
           <div className="lg:col-span-1 md:col-span-1 space-y-6">
             <SearchUsers currentUserId={profile.id} />
-            <PendingRequests currentUserId={profile.id} />
+            <PendingRequests />
           </div>
           <div className="lg:col-span-2 md:col-span-1 col-span-1">
             <ContactsList currentUserId={profile.id} presenceMap={presenceMap} />
@@ -205,7 +204,7 @@ export default function DashboardPage() {
                 className="space-y-6 w-full"
               >
                 <SearchUsers currentUserId={profile.id} />
-                <PendingRequests currentUserId={profile.id} />
+                <PendingRequests />
               </motion.div>
             )}
 

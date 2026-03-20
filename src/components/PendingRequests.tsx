@@ -4,26 +4,19 @@ import { useEffect, useRef, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
-import type { Profile } from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
 
-interface PendingRequestsProps {
-  currentUserId: string;
-}
-
-export default function PendingRequests({ currentUserId }: PendingRequestsProps) {
+export default function PendingRequests() {
   const supabase = createClient();
 
   const {
     pendingRequests: requests,
     isRequestsLoading,
-    fetchPendingRequests,
     optimisticAcceptRequest,
     optimisticDeclineRequest,
-    fetchContacts
   } = useAppStore();
 
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const prevCountRef = useRef<number>(0);
 
   // Play sound if the number of requests increased since last render
@@ -39,30 +32,6 @@ export default function PendingRequests({ currentUserId }: PendingRequestsProps)
     }
     prevCountRef.current = requests.length;
   }, [requests.length]);
-
-  useEffect(() => {
-    // 1. Initial manual fetch/sync backwards with Postgres
-    fetchPendingRequests(currentUserId);
-
-    // 2. Realtime Subscription
-    // No narrow filter — both requester AND receiver must hear about
-    // inserts, updates (accept), and deletes (decline) on the connections table.
-    const channel = supabase
-      .channel("pending-requests")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "connections" },
-        () => [fetchPendingRequests(currentUserId), fetchContacts(currentUserId)]
-      )
-      .subscribe();
-
-    return () => {
-      channel.unsubscribe();
-    };
-    // NOTE: `supabase` is intentionally excluded — createClient() returns a
-    // singleton, and including it causes subscribe/unsubscribe churn every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUserId, fetchPendingRequests]);
 
   /** Accept a connection request optimistically */
   const handleAccept = async (connectionId: string) => {
@@ -86,7 +55,6 @@ export default function PendingRequests({ currentUserId }: PendingRequestsProps)
   };
 
   const { theme } = useTheme();
-  const isDark = theme === "dark";
   const colors = THEME_CONFIG[theme as ThemeType];
 
   if (isRequestsLoading && requests.length === 0) {

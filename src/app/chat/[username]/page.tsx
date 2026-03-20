@@ -53,6 +53,10 @@ export default function ChatPage() {
   const { data: peerProfile, isLoading: peerLoading } = usePeerProfile(peerUsername);
   const currentUserId = currentProfile?.id ?? "";
   const peerUserId = peerProfile?.id ?? "";
+  const watchedPresenceUserIds = useMemo(
+    () => (peerUserId ? [peerUserId] : []),
+    [peerUserId]
+  );
   const shouldCheckRelationship = Boolean(currentUserId && peerUserId);
   const {
     data: canChatWithPeer,
@@ -90,12 +94,18 @@ export default function ChatPage() {
     peerUserId,
     conversationKey
   );
+  const addIncomingEncryptedMessageRef = useRef(addIncomingEncryptedMessage);
+
+  useEffect(() => {
+    addIncomingEncryptedMessageRef.current = addIncomingEncryptedMessage;
+  }, [addIncomingEncryptedMessage]);
 
   // Initialize presence tracking — pass peerUsername so our status is "active"
   const { presenceMap } = usePresence(
     currentProfile?.id ?? "",
     currentProfile?.username ?? "",
-    peerUsername // signals we are in this specific chat
+    peerUsername,
+    watchedPresenceUserIds
   );
 
   /** Get peer's presence status */
@@ -291,7 +301,7 @@ export default function ChatPage() {
         const incomingMessage = payload.payload as EncryptedChatMessage;
         // Only process messages from the peer (not our own echoes)
         if (incomingMessage.sender_id !== currentUserId) {
-          void addIncomingEncryptedMessage(incomingMessage);
+          void addIncomingEncryptedMessageRef.current(incomingMessage);
 
           // Play notification sound for incoming messages
           try {
@@ -315,7 +325,6 @@ export default function ChatPage() {
       channelRef.current = null;
     };
   }, [
-    addIncomingEncryptedMessage,
     canChatWithPeer,
     currentUserId,
     loading,
