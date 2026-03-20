@@ -1,34 +1,27 @@
 import type { Metadata } from "next";
-import { Inter, Playfair_Display, Outfit, Roboto_Slab } from "next/font/google";
+import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/context/ThemeContext";
 import QueryProvider from "@/context/QueryProvider";
-import OfflineOverlay from "@/components/OfflineOverlay";
+import dynamic from "next/dynamic";
 import "./globals.css";
 
+const OfflineOverlay = dynamic(() => import("@/components/OfflineOverlay"));
+
+/**
+ * Only load Inter globally — it's the base body font used everywhere.
+ *
+ * Playfair Display, Outfit, and Roboto Slab are auth-page-only fonts.
+ * They're loaded in (login|signup)/layout.tsx so they don't block
+ * rendering on /dashboard or /chat routes.
+ *
+ * `display: 'swap'` ensures the browser shows fallback text immediately
+ * and swaps in Inter when it finishes loading — prevents Flash of
+ * Invisible Text (FOIT) that blocks FCP/LCP.
+ */
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
-});
-
-// Elegant serif font for prominent quotes on auth pages
-const playfair = Playfair_Display({
-  variable: "--font-playfair",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
-
-// Modern geometric sans-serif for taglines
-const outfit = Outfit({
-  variable: "--font-outfit",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600"],
-});
-
-// Bold slab-serif for the "CQgram" brand name
-const robotoSlab = Roboto_Slab({
-  variable: "--font-roboto-slab",
-  subsets: ["latin"],
-  weight: ["400", "500", "700", "900"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -85,8 +78,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${inter.variable} ${playfair.variable} ${outfit.variable} ${robotoSlab.variable} font-sans antialiased overflow-hidden`}>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {process.env.NEXT_PUBLIC_SUPABASE_URL && (
+          <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL} crossOrigin="anonymous" />
+        )}
+      </head>
+      <body className={`${inter.variable} font-sans antialiased overflow-hidden`}>
         <QueryProvider>
           <ThemeProvider>
             <OfflineOverlay />

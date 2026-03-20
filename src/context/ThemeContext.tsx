@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 
 type Theme = "dark" | "light";
 
@@ -22,19 +22,14 @@ const STORAGE_KEY = "chatapp-theme";
  * Default is "dark".
  */
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("dark");
-  const [mounted, setMounted] = useState(false);
-
-  // Read saved theme from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY) as Theme | null;
-    if (saved === "light" || saved === "dark") {
-      setTheme(saved);
+  const [theme, setTheme] = useState<Theme>(() => {
+    // Read saved theme from localStorage on initial state creation (client-only)
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(STORAGE_KEY) as Theme | null;
+      if (saved === "light" || saved === "dark") return saved;
     }
-    setMounted(true);
-  }, []);
-
-  // Persist theme changes to localStorage
+    return "dark";
+  });
   const toggleTheme = () => {
     setTheme((prev) => {
       const next = prev === "dark" ? "light" : "dark";
@@ -42,11 +37,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       return next;
     });
   };
-
-  // Prevent flash of wrong theme during SSR hydration
-  if (!mounted) {
-    return <>{children}</>;
-  }
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>

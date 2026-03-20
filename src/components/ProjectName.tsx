@@ -1,4 +1,5 @@
 "use client"
+import Image from "next/image"
 
 export default function ProjectName() {
   return (
@@ -10,9 +11,13 @@ export default function ProjectName() {
       >
         CQgram
       </p>
-      <img
+      <Image
         src="/logoo.png"
         alt="CQgram — Secure Encrypted Chat"
+        width={140}
+        height={140}
+        priority
+        fetchPriority="high"
         className="drop-shadow-[0_0_20px_rgba(9,99,126,0.4)] cursor-pointer transition-transform duration-500 hover:scale-110"
       />
 

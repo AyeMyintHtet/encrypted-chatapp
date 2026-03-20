@@ -8,12 +8,12 @@ import { useState, useEffect } from "react";
  * Listens to both `online` and `offline` window events for real-time updates.
  */
 export function useOnlineStatus(): boolean {
-  const [isOnline, setIsOnline] = useState<boolean>(true);
+  const [isOnline, setIsOnline] = useState<boolean>(() => {
+    if (typeof window !== "undefined") return navigator.onLine;
+    return true;
+  });
 
   useEffect(() => {
-    // Set initial status from the browser API
-    setIsOnline(navigator.onLine);
-
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
 

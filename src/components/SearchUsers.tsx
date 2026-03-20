@@ -1,13 +1,11 @@
 "use client";
 
-import { useState, useCallback, useEffect, useTransition } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useAppStore } from "@/store/useAppStore";
-import type { Profile } from "@/lib/types";
-
 interface SearchUsersProps {
   currentUserId: string;
 }
@@ -21,7 +19,7 @@ export default function SearchUsers({ currentUserId }: SearchUsersProps) {
   const [query, setQuery] = useState("");
 
   const { searchResults: results, isSearching: searching, searchUsers } = useAppStore();
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   const [sentRequests, setSentRequests] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -95,7 +93,6 @@ export default function SearchUsers({ currentUserId }: SearchUsersProps) {
   };
 
   const { theme } = useTheme();
-  const isDark = theme === "dark";
   const colors = THEME_CONFIG[theme as ThemeType];
 
   return (

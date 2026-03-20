@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { ArrowRightCircle, Trash2 } from "lucide-react";
+import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
 import {
   cachePeerPublicKeyJwk,
@@ -14,6 +15,7 @@ import {
 } from "@/lib/crypto/e2ee";
 import { useLocalChat } from "@/hooks/useLocalChat";
 import { usePresence } from "@/hooks/usePresence";
+import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 import {
   useCanChatWithPeer,
   useCurrentProfile,
@@ -22,8 +24,17 @@ import {
 import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import ThemeToggle from "@/components/ThemeToggle";
-import ConfirmationModal from "@/components/ConfirmationModal";
 import type { ChatMessage, EncryptedChatMessage, PresenceStatus } from "@/lib/types";
+
+/**
+ * Lazy-loaded components — split into separate JS chunks.
+ *
+ * ConfirmationModal: Only rendered when user taps "Clear Chat" — pure interaction-driven.
+ * TypingIndicator: Only rendered when peer is actively typing — conditional render.
+ */
+const ConfirmationModal = dynamic(() => import("@/components/ConfirmationModal"));
+
+const TypingIndicator = dynamic(() => import("@/components/TypingIndicator"));
 
 type KeyRequestPayload = {
   sender_id: string;
@@ -81,6 +92,8 @@ export default function ChatPage() {
   const [conversationKey, setConversationKey] = useState<CryptoKey | null>(null);
   const [publicKeyJwk, setPublicKeyJwk] = useState<JsonWebKey | null>(null);
   const [secureChannelError, setSecureChannelError] = useState<string | null>(null);
+  // State-based channel ref so hooks like useTypingIndicator re-evaluate when the channel is created
+  const [activeChannel, setActiveChannel] = useState<import("@supabase/supabase-js").RealtimeChannel | null>(null);
 
   // Refs
   const virtuosoRef = useRef<VirtuosoHandle>(null);
@@ -108,11 +121,19 @@ export default function ChatPage() {
     watchedPresenceUserIds
   );
 
+  // Typing indicator — piggybacks on the existing Broadcast channel
+  const { isPeerTyping, notifyTyping } = useTypingIndicator(
+    activeChannel,
+    currentUserId
+  );
+
   /** Get peer's presence status */
   const getPeerStatus = (): PresenceStatus => {
     if (!peerProfile) return "offline";
     return presenceMap[peerProfile.id]?.status ?? "offline";
   };
+
+  const isSecureChannelReady = Boolean(conversationKey);
 
   /** Scroll to the bottom of the messages list */
   const scrollToBottom = useCallback(
@@ -315,6 +336,7 @@ export default function ChatPage() {
       })
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
+          setActiveChannel(channel);
           void sendKeyAnnouncement();
           void sendKeyRequest();
         }
@@ -323,6 +345,7 @@ export default function ChatPage() {
     return () => {
       channel.unsubscribe();
       channelRef.current = null;
+      setActiveChannel(null);
     };
   }, [
     canChatWithPeer,
@@ -444,7 +467,6 @@ export default function ChatPage() {
   const statusLabel =
     peerStatus === "active" ? "Active" :
       peerStatus === "idle" ? "Idle" : "Offline";
-  const isSecureChannelReady = Boolean(conversationKey);
   const isComposerDisabled = isPeerOffline || !isSecureChannelReady;
 
   return (
@@ -565,6 +587,13 @@ export default function ChatPage() {
         )}
       </main>
 
+      {/* Typing indicator — appears above the input when peer is typing */}
+      {isPeerTyping && (
+        <div className="relative z-10 shrink-0" style={{ background: isDark ? "#111827" : colors.surface }}>
+          <TypingIndicator peerName={peerProfile.name} />
+        </div>
+      )}
+
       {/* Message input */}
       <footer className="safe-bottom-area relative z-10 shrink-0 backdrop-blur-md" style={{ background: isDark ? "rgba(3,7,18,0.8)" : "rgba(239,233,227,0.8)", borderTop: `1px solid ${colors.borderMuted}` }}>
         <div className="max-w-4xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
@@ -598,7 +627,11 @@ export default function ChatPage() {
               ref={inputRef}
               type="text"
               value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
+              onChange={(e) => {
+                setInputValue(e.target.value);
+                // Broadcast typing indicator on every keystroke
+                if (e.target.value.trim()) notifyTyping();
+              }}
               onKeyDown={handleKeyDown}
               onFocus={handleInputFocus}
               placeholder={
