@@ -1,4 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
+import {
+  getChatUsernameFromPathname,
+  hasAcceptedConnection,
+} from "@/lib/chat-access";
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
@@ -44,6 +48,7 @@ export async function proxy(request: NextRequest) {
   const isAuthPage = pathname === "/login" || pathname === "/signup";
   const isProtectedRoute =
     pathname.startsWith("/dashboard") || pathname.startsWith("/chat");
+  const chatUsername = getChatUsernameFromPathname(pathname);
 
   // Redirect unauthenticated users trying to access protected routes
   if (!user && isProtectedRoute) {
@@ -57,6 +62,32 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
+  }
+
+  // Chat route guard: only accepted contacts can access `/chat/[username]`
+  if (user && chatUsername) {
+    const deniedUrl = request.nextUrl.clone();
+    deniedUrl.pathname = "/dashboard";
+    deniedUrl.searchParams.set("error", "chat_access_denied");
+
+    const { data: peerProfile, error: peerError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("username", chatUsername)
+      .maybeSingle();
+
+    if (peerError || !peerProfile) {
+      return NextResponse.redirect(deniedUrl);
+    }
+
+    try {
+      const allowed = await hasAcceptedConnection(supabase, user.id, peerProfile.id);
+      if (!allowed) {
+        return NextResponse.redirect(deniedUrl);
+      }
+    } catch {
+      return NextResponse.redirect(deniedUrl);
+    }
   }
 
   return supabaseResponse;

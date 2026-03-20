@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { hasAcceptedConnection } from "@/lib/chat-access";
 import { useRouter } from "next/navigation";
 import type { Profile } from "@/lib/types";
 
@@ -86,5 +87,21 @@ export function usePeerProfile(username: string) {
       return data as Profile;
     },
     enabled: !!username, // Only run the query if a username is provided
+  });
+}
+
+/**
+ * Verifies whether the current user has an accepted connection with the peer.
+ * Chat access should be granted only when this returns `true`.
+ */
+export function useCanChatWithPeer(currentUserId: string, peerUserId: string) {
+  const supabase = createClient();
+
+  return useQuery({
+    queryKey: ["canChatWithPeer", currentUserId, peerUserId],
+    queryFn: () => hasAcceptedConnection(supabase, currentUserId, peerUserId),
+    enabled: Boolean(currentUserId && peerUserId),
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
   });
 }

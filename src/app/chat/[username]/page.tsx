@@ -14,7 +14,11 @@ import {
 } from "@/lib/crypto/e2ee";
 import { useLocalChat } from "@/hooks/useLocalChat";
 import { usePresence } from "@/hooks/usePresence";
-import { useCurrentProfile, usePeerProfile } from "@/hooks/useProfile";
+import {
+  useCanChatWithPeer,
+  useCurrentProfile,
+  usePeerProfile,
+} from "@/hooks/useProfile";
 import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -47,10 +51,24 @@ export default function ChatPage() {
   // Fetch profiles globally via React Query
   const { data: currentProfile, isLoading: currentLoading } = useCurrentProfile();
   const { data: peerProfile, isLoading: peerLoading } = usePeerProfile(peerUsername);
-
-  const loading = currentLoading || peerLoading;
   const currentUserId = currentProfile?.id ?? "";
   const peerUserId = peerProfile?.id ?? "";
+  const shouldCheckRelationship = Boolean(currentUserId && peerUserId);
+  const {
+    data: canChatWithPeer,
+    isLoading: relationshipLoading,
+    error: relationshipError,
+  } = useCanChatWithPeer(currentUserId, peerUserId);
+  const loading =
+    currentLoading ||
+    peerLoading ||
+    (shouldCheckRelationship && relationshipLoading);
+  const isAccessDenied = Boolean(
+    !loading &&
+    currentProfile &&
+    peerProfile &&
+    (canChatWithPeer === false || relationshipError)
+  );
 
   // State
   const [inputValue, setInputValue] = useState("");
@@ -104,6 +122,12 @@ export default function ChatPage() {
     scrollToBottom("smooth");
   }, [messages, scrollToBottom]);
 
+  // Guard `/chat/[username]` by accepted relationship.
+  useEffect(() => {
+    if (!isAccessDenied) return;
+    router.replace("/dashboard?error=chat_access_denied");
+  }, [isAccessDenied, router]);
+
   // Keep chat viewport aligned with the visible mobile area when keyboard opens.
   // iOS Safari scrolls the document body when the keyboard appears, so we
   // force-reset scroll position and use visualViewport.offsetTop to stay pinned.
@@ -145,7 +169,7 @@ export default function ChatPage() {
 
   // Initialize local identity keypair and restore cached peer key.
   useEffect(() => {
-    if (!currentUserId || !peerUserId || loading) return;
+    if (!currentUserId || !peerUserId || loading || canChatWithPeer !== true) return;
     let isMounted = true;
 
     const initializeKeys = async () => {
@@ -185,11 +209,17 @@ export default function ChatPage() {
       isMounted = false;
       privateKeyRef.current = null;
     };
-  }, [currentUserId, loading, peerUserId]);
+  }, [canChatWithPeer, currentUserId, loading, peerUserId]);
 
   // Set up Broadcast channel for real-time encrypted messaging + key exchange.
   useEffect(() => {
-    if (!currentUserId || !peerUserId || loading || !publicKeyJwk) return;
+    if (
+      !currentUserId ||
+      !peerUserId ||
+      loading ||
+      canChatWithPeer !== true ||
+      !publicKeyJwk
+    ) return;
     if (!privateKeyRef.current) return;
 
     // Create a deterministic channel name (sorted user IDs)
@@ -286,6 +316,7 @@ export default function ChatPage() {
     };
   }, [
     addIncomingEncryptedMessage,
+    canChatWithPeer,
     currentUserId,
     loading,
     peerUserId,
@@ -380,6 +411,16 @@ export default function ChatPage() {
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
         </svg>
+      </div>
+    );
+  }
+
+  if (isAccessDenied) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: colors.background }}>
+        <p className="text-sm" style={{ color: colors.textSecondary }}>
+          Redirecting to dashboard...
+        </p>
       </div>
     );
   }
