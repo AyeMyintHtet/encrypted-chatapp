@@ -1,6 +1,6 @@
 # 💬 Encrypted Chat App
 
-A real-time, peer-to-peer chat application built with **Next.js 16**, **Supabase**, and **Tailwind CSS v4**. Features include user authentication, friend connections, live messaging via Supabase Broadcast, and real-time presence tracking.
+A real-time chat application built with **Next.js 16**, **Supabase**, and **Tailwind CSS v4**. Features include user authentication, friend connections, **end-to-end encrypted** live messaging via Supabase Broadcast, encrypted local message persistence, and real-time presence tracking.
 
 ---
 
@@ -12,13 +12,14 @@ A real-time, peer-to-peer chat application built with **Next.js 16**, **Supabase
 | **User Search** | Search users by username and send connection requests |
 | **Friend Requests** | Real-time pending request notifications with accept/decline |
 | **Contacts List** | View accepted contacts with live presence indicators |
-| **Real-time Chat** | Instant messaging via Supabase Broadcast channels |
+| **Real-time Chat** | Instant messaging via Supabase Broadcast channels (ciphertext payloads) |
+| **End-to-End Encryption** | Messages are encrypted client-side using Web Crypto (ECDH + AES-GCM) |
 | **Presence System** | Active / Idle / Offline status, updated in real-time |
 | **Idle Detection** | Auto-transitions to "Idle" after 1 minute of inactivity |
 | **Offline UI** | Message input disabled when peer is offline |
 | **Chat Management** | Clear all chat history per conversation |
 | **Contact Management** | Clear all contacts (reflected in real-time for both users) |
-| **Local Persistence** | Messages stored in `localStorage` for offline access |
+| **Local Persistence** | Encrypted message payloads stored in `localStorage` |
 
 ---
 
@@ -50,12 +51,13 @@ src/
 │   ├── PendingRequests.tsx       # Incoming friend requests
 │   └── SearchUsers.tsx           # User search & connect
 ├── hooks/
-│   ├── useLocalChat.ts           # localStorage chat persistence
+│   ├── useLocalChat.ts           # encrypted localStorage chat persistence
 │   └── usePresence.ts            # Supabase Presence hook
 ├── lib/
 │   ├── supabase/
 │   │   ├── client.ts             # Browser Supabase client
 │   │   └── server.ts             # Server Supabase client
+│   ├── crypto/e2ee.ts            # Web Crypto encryption utilities
 │   └── types.ts                  # Shared TypeScript types
 └── proxy.ts                      # Route protection middleware
 ```
@@ -202,7 +204,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ### Chat
 1. Click on a contact to open the chat page
 2. Type a message and press **Enter** or click the send button
-3. Messages are delivered in real-time via Supabase Broadcast
+3. Message payloads are encrypted client-side and delivered via Supabase Broadcast
 
 ### Presence Status
 | Status | When |
@@ -212,6 +214,13 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 | 🔴 **Offline** | User is on the dashboard or has closed the app |
 
 > When a peer is offline, the message input is disabled with a banner notification.
+
+### Encryption Model
+- Messages are encrypted in the browser before being sent.
+- Supabase Broadcast transports ciphertext, not plaintext message content.
+- Stored chat payloads in `localStorage` are encrypted (AES-GCM).
+- Key exchange uses ECDH public keys exchanged between peers over the chat channel.
+- Metadata (sender id, timestamp, presence, connection graph) is not hidden.
 
 ### Clear Data
 - **Clear All Chat** — Button appears in the chat header when messages exist

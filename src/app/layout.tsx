@@ -33,11 +33,21 @@ const robotoSlab = Roboto_Slab({
 
 export const metadata: Metadata = {
   title: {
-    default: "CQgram | Secure P2P Encrypted Messaging",
+    default: "CQgram | End-to-End Encrypted Messaging",
     template: "%s | CQgram",
   },
-  description: "Experience ultimate privacy with CQgram. Real-time, peer-to-peer encrypted messaging built with Next.js and Supabase.",
-  keywords: ["chat", "encrypted", "p2p", "real-time", "privacy", "secure messaging", "supabase", "nextjs"],
+  description:
+    "CQgram delivers end-to-end encrypted real-time messaging with encrypted local message storage on this device.",
+  keywords: [
+    "chat",
+    "end-to-end encryption",
+    "e2ee",
+    "real-time messaging",
+    "privacy",
+    "secure messaging",
+    "supabase",
+    "nextjs",
+  ],
   authors: [{ name: "CQgram Team" }],
   creator: "CQgram Team",
   metadataBase: new URL("https://chatapp-encrypted.vercel.app"), // Replace with your actual domain
@@ -45,14 +55,16 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_US",
     url: "https://chatapp-encrypted.vercel.app",
-    title: "CQgram | Secure P2P Encrypted Messaging",
-    description: "Secure, real-time, peer-to-peer encrypted messaging.",
+    title: "CQgram | End-to-End Encrypted Messaging",
+    description:
+      "End-to-end encrypted real-time messaging with encrypted local message storage.",
     siteName: "CQgram",
   },
   twitter: {
     card: "summary_large_image",
-    title: "CQgram | Secure P2P Encrypted Messaging",
-    description: "Secure, real-time, peer-to-peer encrypted messaging.",
+    title: "CQgram | End-to-End Encrypted Messaging",
+    description:
+      "End-to-end encrypted real-time messaging with encrypted local message storage.",
   },
   icons: {
     icon: "/logoo.png",

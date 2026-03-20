@@ -1,7 +1,7 @@
 {
   "name": "CQgram",
   "short_name": "CQgram",
-  "description": "Experience ultimate privacy with CQgram. Real-time, peer-to-peer encrypted messaging with end-to-end encryption.",
+  "description": "End-to-end encrypted real-time messaging with encrypted local message storage.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",

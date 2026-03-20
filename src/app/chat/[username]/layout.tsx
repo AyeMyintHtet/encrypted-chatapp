@@ -9,7 +9,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   return {
     title: `Chat with ${username}`,
-    description: `Secure, encrypted P2P chat session with ${username} on CQgram. Your privacy is our priority.`,
+    description: `End-to-end encrypted chat session with ${username} on CQgram.`,
     robots: {
       index: false, // Don't index private chat pages
       follow: false,

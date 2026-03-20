@@ -1,10 +1,17 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
-import { ArrowBigLeft, ArrowBigRight, ArrowRightCircle, Trash2 } from "lucide-react";
+import { ArrowRightCircle, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import {
+  cachePeerPublicKeyJwk,
+  deriveConversationKey,
+  getCachedPeerPublicKeyJwk,
+  getOrCreateIdentityKeyPair,
+  importPeerPublicKey,
+} from "@/lib/crypto/e2ee";
 import { useLocalChat } from "@/hooks/useLocalChat";
 import { usePresence } from "@/hooks/usePresence";
 import { useCurrentProfile, usePeerProfile } from "@/hooks/useProfile";
@@ -12,16 +19,29 @@ import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import ThemeToggle from "@/components/ThemeToggle";
 import ConfirmationModal from "@/components/ConfirmationModal";
-import type { ChatMessage, PresenceStatus } from "@/lib/types";
+import type { ChatMessage, EncryptedChatMessage, PresenceStatus } from "@/lib/types";
+
+type KeyRequestPayload = {
+  sender_id: string;
+  timestamp: string;
+};
+
+type KeyAnnouncePayload = {
+  sender_id: string;
+  timestamp: string;
+  public_key: JsonWebKey;
+};
 
 /**
  * Chat page for a specific peer-to-peer conversation.
- * Uses Supabase Broadcast for real-time messaging and localStorage for persistence.
+ * Uses Web Crypto (ECDH + AES-GCM) for end-to-end encryption of:
+ * - Supabase Broadcast message payloads
+ * - Local chat persistence in localStorage
  */
 export default function ChatPage() {
   const params = useParams();
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const peerUsername = params.username as string;
 
   // Fetch profiles globally via React Query
@@ -29,21 +49,28 @@ export default function ChatPage() {
   const { data: peerProfile, isLoading: peerLoading } = usePeerProfile(peerUsername);
 
   const loading = currentLoading || peerLoading;
+  const currentUserId = currentProfile?.id ?? "";
+  const peerUserId = peerProfile?.id ?? "";
 
   // State
   const [inputValue, setInputValue] = useState("");
   const [showClearChatConfirm, setShowClearChatConfirm] = useState(false);
   const [viewportHeight, setViewportHeight] = useState("100dvh");
+  const [conversationKey, setConversationKey] = useState<CryptoKey | null>(null);
+  const [publicKeyJwk, setPublicKeyJwk] = useState<JsonWebKey | null>(null);
+  const [secureChannelError, setSecureChannelError] = useState<string | null>(null);
 
   // Refs
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const channelRef = useRef<import("@supabase/supabase-js").RealtimeChannel | null>(null);
+  const privateKeyRef = useRef<CryptoKey | null>(null);
 
   // Initialize chat hook once both profiles are loaded
-  const { messages, addMessage, clearMessages } = useLocalChat(
-    currentProfile?.id ?? "",
-    peerProfile?.id ?? ""
+  const { messages, addOutgoingMessage, addIncomingEncryptedMessage, clearMessages } = useLocalChat(
+    currentUserId,
+    peerUserId,
+    conversationKey
   );
 
   // Initialize presence tracking — pass peerUsername so our status is "active"
@@ -116,22 +143,125 @@ export default function ChatPage() {
     scrollToBottom("auto");
   }, [viewportHeight, scrollToBottom]);
 
-  // Set up Broadcast channel for real-time messaging
+  // Initialize local identity keypair and restore cached peer key.
   useEffect(() => {
-    if (!currentProfile || !peerProfile || loading) return;
+    if (!currentUserId || !peerUserId || loading) return;
+    let isMounted = true;
+
+    const initializeKeys = async () => {
+      try {
+        const identity = await getOrCreateIdentityKeyPair(currentUserId);
+        if (!isMounted) return;
+
+        privateKeyRef.current = identity.privateKey;
+        setPublicKeyJwk(identity.publicKeyJwk);
+        setSecureChannelError(null);
+
+        const cachedPeerJwk = getCachedPeerPublicKeyJwk(
+          currentUserId,
+          peerUserId
+        );
+        if (!cachedPeerJwk) {
+          setConversationKey(null);
+          return;
+        }
+
+        const peerPublicKey = await importPeerPublicKey(cachedPeerJwk);
+        const derivedKey = await deriveConversationKey(
+          identity.privateKey,
+          peerPublicKey
+        );
+        if (!isMounted) return;
+        setConversationKey(derivedKey);
+      } catch {
+        if (!isMounted) return;
+        setConversationKey(null);
+        setSecureChannelError("Secure channel setup failed on this device.");
+      }
+    };
+
+    void initializeKeys();
+    return () => {
+      isMounted = false;
+      privateKeyRef.current = null;
+    };
+  }, [currentUserId, loading, peerUserId]);
+
+  // Set up Broadcast channel for real-time encrypted messaging + key exchange.
+  useEffect(() => {
+    if (!currentUserId || !peerUserId || loading || !publicKeyJwk) return;
+    if (!privateKeyRef.current) return;
 
     // Create a deterministic channel name (sorted user IDs)
-    const channelName = `chat_${[currentProfile.id, peerProfile.id].sort().join("_")}`;
-
+    const channelName = `chat_${[currentUserId, peerUserId].sort().join("_")}`;
     const channel = supabase.channel(channelName);
     channelRef.current = channel;
 
+    const sendKeyRequest = async () => {
+      if (!channelRef.current) return;
+      const payload: KeyRequestPayload = {
+        sender_id: currentUserId,
+        timestamp: new Date().toISOString(),
+      };
+
+      await channelRef.current.send({
+        type: "broadcast",
+        event: "key_request",
+        payload,
+      });
+    };
+
+    const sendKeyAnnouncement = async () => {
+      if (!channelRef.current) return;
+      const payload: KeyAnnouncePayload = {
+        sender_id: currentUserId,
+        public_key: publicKeyJwk,
+        timestamp: new Date().toISOString(),
+      };
+
+      await channelRef.current.send({
+        type: "broadcast",
+        event: "key_announce",
+        payload,
+      });
+    };
+
+    const handlePeerKeyAnnouncement = async (payload: KeyAnnouncePayload) => {
+      if (payload.sender_id === currentUserId) return;
+
+      try {
+        cachePeerPublicKeyJwk(currentUserId, peerUserId, payload.public_key);
+        if (!privateKeyRef.current) return;
+
+        const peerPublicKey = await importPeerPublicKey(payload.public_key);
+        const derivedKey = await deriveConversationKey(
+          privateKeyRef.current,
+          peerPublicKey
+        );
+
+        setConversationKey(derivedKey);
+        setSecureChannelError(null);
+      } catch {
+        setSecureChannelError("Could not establish an encrypted channel.");
+      }
+    };
+
     channel
+      .on("broadcast", { event: "key_request" }, (payload) => {
+        const request = payload.payload as KeyRequestPayload;
+        if (request.sender_id !== currentUserId) {
+          void sendKeyAnnouncement();
+        }
+      })
+      .on("broadcast", { event: "key_announce" }, (payload) => {
+        const announcement = payload.payload as KeyAnnouncePayload;
+        void handlePeerKeyAnnouncement(announcement);
+      })
       .on("broadcast", { event: "message" }, (payload) => {
-        const incomingMessage = payload.payload as ChatMessage;
+        const incomingMessage = payload.payload as EncryptedChatMessage;
         // Only process messages from the peer (not our own echoes)
-        if (incomingMessage.sender_id !== currentProfile.id) {
-          addMessage(incomingMessage);
+        if (incomingMessage.sender_id !== currentUserId) {
+          void addIncomingEncryptedMessage(incomingMessage);
 
           // Play notification sound for incoming messages
           try {
@@ -143,17 +273,36 @@ export default function ChatPage() {
           }
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          void sendKeyAnnouncement();
+          void sendKeyRequest();
+        }
+      });
 
     return () => {
       channel.unsubscribe();
+      channelRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentProfile?.id, peerProfile?.id, loading]);
+  }, [
+    addIncomingEncryptedMessage,
+    currentUserId,
+    loading,
+    peerUserId,
+    publicKeyJwk,
+    supabase,
+  ]);
 
-  /** Send a message via Broadcast and persist to localStorage */
+  /** Send an encrypted message via Broadcast and persist encrypted content locally */
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || !currentProfile || !channelRef.current) return;
+    if (
+      !inputValue.trim() ||
+      !currentProfile ||
+      !channelRef.current ||
+      !conversationKey
+    ) {
+      return;
+    }
 
     const message: ChatMessage = {
       id: createMessageId(),
@@ -162,18 +311,22 @@ export default function ChatPage() {
       timestamp: new Date().toISOString(),
     };
 
-    // Persist locally first, then broadcast to peer
-    addMessage(message);
-    setInputValue("");
-
     try {
+      const encryptedMessage = await addOutgoingMessage(message);
+      if (!encryptedMessage) {
+        setSecureChannelError("Encrypted channel is not ready yet.");
+        return;
+      }
+
       await channelRef.current.send({
         type: "broadcast",
         event: "message",
-        payload: message,
+        payload: encryptedMessage,
       });
-    } finally {
-
+      setInputValue("");
+      setSecureChannelError(null);
+    } catch {
+      setSecureChannelError("Unable to encrypt and send this message.");
     }
   };
 
@@ -200,6 +353,9 @@ export default function ChatPage() {
 
   /** Lightweight message ID generator for local chat messages */
   const createMessageId = (): string => {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return `msg_${crypto.randomUUID()}`;
+    }
     const timePart = Date.now().toString(36);
     const randomPart = Math.random().toString(36).slice(2, 10);
     return `msg_${timePart}_${randomPart}`;
@@ -238,6 +394,8 @@ export default function ChatPage() {
   const statusLabel =
     peerStatus === "active" ? "Active" :
       peerStatus === "idle" ? "Idle" : "Offline";
+  const isSecureChannelReady = Boolean(conversationKey);
+  const isComposerDisabled = isPeerOffline || !isSecureChannelReady;
 
   return (
     <div
@@ -284,6 +442,10 @@ export default function ChatPage() {
                     peerStatus === "idle" ? "text-amber-400" : "text-gray-500"
                 }>
                   {statusLabel}
+                </span>
+                <span className="hidden sm:inline" style={{ color: colors.borderMuted }}>·</span>
+                <span className={isSecureChannelReady ? "text-cyan-400" : "text-amber-400"}>
+                  {isSecureChannelReady ? "Encrypted" : "Securing..."}
                 </span>
               </p>
             </div>
@@ -356,12 +518,28 @@ export default function ChatPage() {
       {/* Message input */}
       <footer className="safe-bottom-area relative z-10 shrink-0 backdrop-blur-md" style={{ background: isDark ? "rgba(3,7,18,0.8)" : "rgba(239,233,227,0.8)", borderTop: `1px solid ${colors.borderMuted}` }}>
         <div className="max-w-4xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
+          {!isSecureChannelReady && !secureChannelError && (
+            <div className="mb-2 sm:mb-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-amber-400 rounded-full" />
+              <span className="text-[10px] sm:text-xs text-amber-300">
+                Establishing end-to-end encrypted channel with {peerProfile.name}...
+              </span>
+            </div>
+          )}
+          {secureChannelError && (
+            <div className="mb-2 sm:mb-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20">
+              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-red-400 rounded-full" />
+              <span className="text-[10px] sm:text-xs text-red-300">
+                {secureChannelError}
+              </span>
+            </div>
+          )}
           {/* Offline banner — show when peer is not in this chat */}
           {isPeerOffline && (
             <div className="mb-2 sm:mb-3 flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: colors.surface, border: `1px solid ${colors.borderMuted}` }}>
               <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-gray-500 rounded-full" />
               <span className="text-[10px] sm:text-xs" style={{ color: colors.textSecondary }}>
-                {peerProfile.name} is offline — messages will be delivered when they open the app.
+                {peerProfile.name} is offline — send is disabled until they reconnect.
               </span>
             </div>
           )}
@@ -373,10 +551,18 @@ export default function ChatPage() {
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
               onFocus={handleInputFocus}
-              placeholder={isPeerOffline ? `${peerProfile.name} is offline...` : "Type a message..."}
-              readOnly={isPeerOffline}
+              placeholder={
+                secureChannelError
+                  ? "Secure channel unavailable..."
+                  : !isSecureChannelReady
+                    ? "Setting up end-to-end encryption..."
+                    : isPeerOffline
+                      ? `${peerProfile.name} is offline...`
+                      : "Type a message..."
+              }
+              readOnly={isComposerDisabled}
               enterKeyHint="send"
-              className={`flex-1 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#09637E]/50 focus:border-[#09637E]/50 transition-all text-xs sm:text-sm ${isPeerOffline ? "opacity-50 cursor-not-allowed" : ""}`}
+              className={`flex-1 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#09637E]/50 focus:border-[#09637E]/50 transition-all text-xs sm:text-sm ${isComposerDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
               style={{ background: colors.inputBg, border: `1px solid ${colors.border}`, color: colors.textPrimary }}
             />
             <button
@@ -384,7 +570,7 @@ export default function ChatPage() {
               onPointerDown={(e) => {
                 e.preventDefault();
               }}
-              disabled={!inputValue.trim() || isPeerOffline}
+              disabled={!inputValue.trim() || isComposerDisabled}
               className="p-2.5 sm:p-3 bg-linear-to-r from-[#09637E] to-[#088395] hover:from-[#0a7490] hover:to-[#099aaa] text-white rounded-xl transition-all shadow-lg shadow-[#09637E]/25 hover:shadow-[#09637E]/40 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
             >
               <ArrowRightCircle />

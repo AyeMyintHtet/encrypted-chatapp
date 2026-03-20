@@ -34,6 +34,17 @@ export interface ChatMessage {
   timestamp: string;
 }
 
+/** Encrypted chat message payload for Broadcast + local persistence */
+export interface EncryptedChatMessage {
+  id: string;
+  sender_id: string;
+  timestamp: string;
+  ciphertext: string;
+  iv: string;
+  algorithm: "AES-GCM";
+  version: 1;
+}
+
 /** Presence status for a user */
 export type PresenceStatus = "active" | "idle" | "offline";
 
