@@ -11,7 +11,9 @@ export default function Header({ profile, setShowSignOutConfirm }: { profile?: a
   return (
     <header className="relative z-10" style={{ borderBottom: `1px solid ${colors.borderMuted}` }}>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center">
+        <div className="cursor-pointer flex items-center"
+          onClick={() => router.push('/dashboard')}
+        >
           <Image
             src="/logoo.png"
             width={100}
