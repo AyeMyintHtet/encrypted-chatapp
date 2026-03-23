@@ -1,10 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { LazyMotion, domAnimation, m, AnimatePresence } from "framer-motion";
+import { LazyMotion, domMax, m, AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
 
-import { useRouter } from "next/navigation";
+
 import { usePresence } from "@/hooks/usePresence";
 import { useConnectionsSync } from "@/hooks/useConnectionsSync";
 import { useCurrentProfile } from "@/hooks/useProfile";
@@ -15,6 +15,9 @@ import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import { useAppStore } from "@/store/useAppStore";
 import { Home, Search, User } from "lucide-react";
 import Image from "next/image";
+import ProfileComponent from "@/components/profile/profileComponent";
+import SignOutModal from "@/components/SignOut";
+import Header from "@/components/Header";
 
 /**
  * Lazy-loaded components — split into separate JS chunks.
@@ -46,7 +49,7 @@ const ConfirmationModal = dynamic(() => import("@/components/ConfirmationModal")
  * Shows search, pending requests, and contacts with presence tracking.
  */
 export default function DashboardPage() {
-  const router = useRouter();
+
 
   // Fetch current user's profile using centralized React Query hook
   const { data: profile, isLoading: loading } = useCurrentProfile();
@@ -65,17 +68,7 @@ export default function DashboardPage() {
     // No chatWith = we're on dashboard, so status = "offline"
   );
 
-  /** Sign out and redirect to login */
-  const handleSignOut = async () => {
-    // Note: It's better to rely on Supabase directly to log out the user,
-    // though createClient could have been kept, we recreate it here specifically for log out.
-    // Or we can import explicitly.
-    const { createClient } = await import('@/lib/supabase/client');
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
-  };
+
 
   // We reinstate showSignOutConfirm because I deleted the hook inadvertently!
   const [showSignOutConfirm, setShowSignOutConfirm] = useState<boolean>(false);
@@ -128,7 +121,7 @@ export default function DashboardPage() {
   if (!profile) return null;
 
   return (
-    <LazyMotion features={domAnimation}>
+    <LazyMotion features={domMax}>
       <div className="" style={{ background: colors.background }}>
         {/* Ambient background glow */}
         <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -137,57 +130,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Top bar */}
-        <header className="relative z-10" style={{ borderBottom: `1px solid ${colors.borderMuted}` }}>
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center">
-              <Image
-                src="/logoo.png"
-                width={100}
-                height={100}
-                alt="Logo"
-                className="-ml-5"
-                priority
-                fetchPriority="high"
-              />
-              <div className="-ml-5">
-                <h1 className="font-bold text-lg" style={{ color: colors.textPrimary }}>CQgram</h1>
-                <p style={{ color: colors.textTertiary }} className="text-xs hidden sm:block">Encrypted P2P Messaging</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 sm:gap-3">
-              {/* User info with status */}
-              <div className="hidden md:flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-lg" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
-                <div className="relative">
-                  <div className="w-6 h-6 sm:w-7 sm:h-7 bg-linear-to-br from-[#09637E] to-[#088395] rounded-full flex items-center justify-center text-white font-semibold text-[10px] sm:text-xs">
-                    {profile.name.charAt(0).toUpperCase()}
-                  </div>
-                </div>
-                <div className="">
-                  <p className="text-sm font-medium" style={{ color: colors.textPrimary }}>{profile.name}</p>
-                </div>
-              </div>
-
-              <ThemeToggle />
-
-              <button
-                onClick={() => setShowSignOutConfirm(true)}
-                className="px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
-                style={{
-                  color: colors.textSecondary,
-                  background: colors.surface,
-                  border: `1px solid ${colors.border}`,
-                }}
-                aria-label="Sign out"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                <span className="hidden sm:inline">Sign Out</span>
-              </button>
-            </div>
-          </div>
-        </header>
+        <Header profile={profile} setShowSignOutConfirm={setShowSignOutConfirm} />
 
         {/* Main content */}
         <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-6 pb-28 md:pb-8 min-h-screen">
@@ -246,25 +189,7 @@ export default function DashboardPage() {
                   transition={{ type: "spring", stiffness: 300, damping: 30 }}
                   className="w-full"
                 >
-                  <div
-                    className="rounded-2xl p-6 shadow-xl flex flex-col items-center gap-4 relative z-10"
-                    style={{ background: colors.surface, border: `1px solid ${colors.border}` }}
-                  >
-                    <div className="w-20 h-20 bg-linear-to-br from-[#09637E] to-[#088395] rounded-full flex items-center justify-center shadow-lg">
-                      <span className="text-white text-3xl font-bold">{profile.name.charAt(0).toUpperCase()}</span>
-                    </div>
-                    <div className="text-center">
-                      <h2 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{profile.name}</h2>
-                      <p style={{ color: colors.textTertiary }}>@{profile.username}</p>
-                    </div>
-                    <button
-                      onClick={() => setShowSignOutConfirm(true)}
-                      className="cursor-pointer mt-4 px-6 py-2 rounded-full font-medium transition-colors border w-full text-center"
-                      style={{ color: '#EF4444', borderColor: 'rgba(239, 68, 68, 0.2)', background: 'rgba(239, 68, 68, 0.05)' }}
-                    >
-                      Sign Out
-                    </button>
-                  </div>
+                  <ProfileComponent setShowSignOutConfirm={setShowSignOutConfirm} />
                 </m.div>
               )}
             </AnimatePresence>
@@ -329,14 +254,7 @@ export default function DashboardPage() {
           </div>
         </footer>
 
-        <ConfirmationModal
-          isOpen={showSignOutConfirm}
-          onClose={() => setShowSignOutConfirm(false)}
-          onConfirm={handleSignOut}
-          title="Sign Out"
-          message="Are you sure you want to sign out from your account?"
-          confirmText="Sign Out"
-        />
+        <SignOutModal showSignOutConfirm={showSignOutConfirm} setShowSignOutConfirm={setShowSignOutConfirm} />
       </div>
     </LazyMotion>
   );
