@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/context/ThemeContext";
 import QueryProvider from "@/context/QueryProvider";
+import { GlobalLoadingProvider } from "@/context/GlobalLoadingContext";
 import dynamic from "next/dynamic";
 import "./globals.css";
 
@@ -87,8 +88,10 @@ export default function RootLayout({
       <body className={`${inter.variable} font-sans antialiased overflow-hidden`}>
         <QueryProvider>
           <ThemeProvider>
-            <OfflineOverlay />
-            {children}
+            <GlobalLoadingProvider>
+              <OfflineOverlay />
+              {children}
+            </GlobalLoadingProvider>
           </ThemeProvider>
         </QueryProvider>
       </body>

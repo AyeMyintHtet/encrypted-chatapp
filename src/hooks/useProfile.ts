@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/client";
 import { hasAcceptedConnection } from "@/lib/chat-access";
 import { useRouter } from "next/navigation";
 import type { Profile } from "@/lib/types";
+import { useGlobalLoading } from "@/context/GlobalLoadingContext";
 
 /**
  * Shared hook to fetch the current authenticated user's profile.
@@ -11,7 +12,7 @@ import type { Profile } from "@/lib/types";
 export function useCurrentProfile() {
   const supabase = createClient();
   const router = useRouter();
-
+  const { setIsLoading } = useGlobalLoading();
   return useQuery({
     queryKey: ["currentProfile"],
     queryFn: async () => {
@@ -32,6 +33,7 @@ export function useCurrentProfile() {
 
       // Handle session expiration immediately
       if (error && (error.code === "406" || error.message?.includes("406"))) {
+        setIsLoading(true);
         await supabase.auth.signOut();
         document.cookie.split(";").forEach((c) => {
           document.cookie =
@@ -39,6 +41,7 @@ export function useCurrentProfile() {
             "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
         });
         router.push("/login");
+        setIsLoading(false);
         throw new Error("Session expired");
       }
 
@@ -57,6 +60,7 @@ export function useCurrentProfile() {
 export function usePeerProfile(username: string) {
   const supabase = createClient();
   const router = useRouter();
+  const { setIsLoading } = useGlobalLoading();
 
   return useQuery({
     queryKey: ["profile", username],
@@ -70,6 +74,7 @@ export function usePeerProfile(username: string) {
         .single();
 
       if (error && (error.code === "406" || error.message?.includes("406"))) {
+        setIsLoading(true);
         await supabase.auth.signOut();
         document.cookie.split(";").forEach((c) => {
           document.cookie =
@@ -77,6 +82,7 @@ export function usePeerProfile(username: string) {
             "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
         });
         router.push("/login");
+        setIsLoading(false);
         throw new Error("Session expired");
       }
 
