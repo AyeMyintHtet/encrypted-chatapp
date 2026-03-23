@@ -34,6 +34,7 @@ interface AppState {
   
   // Optimistic UI updates
   optimisticClearContacts: () => void;
+  optimisticRemoveContact: (contactId: string) => void;
   optimisticAcceptRequest: (connectionId: string) => void;
   optimisticDeclineRequest: (connectionId: string) => void;
   optimisticSendConnection: (receiverId: string) => void;
@@ -94,6 +95,18 @@ export const useAppStore = create<AppState>()(
           return {
             contacts: [],
             contactsByUser: upsertContactsCache(state.contactsByUser, currentUserId, []),
+          };
+        }),
+      
+      optimisticRemoveContact: (contactId) =>
+        set((state) => {
+          const currentUserId = state.activeContactsUserId;
+          if (!currentUserId) return state;
+
+          const nextContacts = state.contacts.filter((c) => c.id !== contactId);
+          return {
+            contacts: nextContacts,
+            contactsByUser: upsertContactsCache(state.contactsByUser, currentUserId, nextContacts),
           };
         }),
       

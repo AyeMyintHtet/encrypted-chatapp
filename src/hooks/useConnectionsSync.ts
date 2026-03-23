@@ -169,6 +169,16 @@ export function useConnectionsSync(currentUserId: string) {
           handleConnectionChange
         )
         .subscribe(),
+      supabase
+        .channel(`sync:${currentUserId}`)
+        .on(
+          "broadcast",
+          { event: "refresh_connections" },
+          () => {
+            scheduleRefresh({ contacts: true, requests: true });
+          }
+        )
+        .subscribe(),
     ];
 
     return () => {

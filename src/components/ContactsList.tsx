@@ -6,9 +6,10 @@ import { createClient } from "@/lib/supabase/client";
 import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import ConfirmationModal from "@/components/ConfirmationModal";
-import type { UserPresence } from "@/lib/types";
+import type { UserPresence, Profile } from "@/lib/types";
 import { Virtuoso } from "react-virtuoso";
 import { useAppStore } from "@/store/useAppStore";
+import { Trash2 } from "lucide-react";
 
 interface ContactsListProps {
   currentUserId: string;
@@ -20,23 +21,65 @@ export default function ContactsList({ currentUserId, presenceMap }: ContactsLis
   const router = useRouter();
 
   // Local-first persistence
-  const { contacts, isContactsLoading, optimisticClearContacts } = useAppStore();
+  const { contacts, isContactsLoading, optimisticClearContacts, optimisticRemoveContact } = useAppStore();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [contactToDelete, setContactToDelete] = useState<Profile | null>(null);
   const [, startTransition] = useTransition();
+
+  /** Manually trigger peer's UI refetch via broadcast since Postgres DELETE drops WAL row payload */
+  const notifyPeers = useCallback(
+    (peerIds: string[]) => {
+      peerIds.forEach((peerId) => {
+        const channel = supabase.channel(`sync:${peerId}`);
+        channel.subscribe(async (status) => {
+          if (status === "SUBSCRIBED") {
+            await channel.send({
+              type: "broadcast",
+              event: "refresh_connections",
+            });
+            supabase.removeChannel(channel);
+          }
+        });
+      });
+    },
+    [supabase]
+  );
 
   /** Delete all accepted connections optimistically */
   const clearAllContacts = useCallback(async () => {
+    const peersToNotify = contacts.map((c) => c.id);
+
     // 1. Instantly update UI synchronously within React transition
     startTransition(() => {
       optimisticClearContacts();
     });
 
-    // 2. Perform background mutations
-    await Promise.all([
-      supabase.from("connections").delete().eq("status", "accepted").eq("requester_id", currentUserId),
-      supabase.from("connections").delete().eq("status", "accepted").eq("receiver_id", currentUserId)
-    ]);
-  }, [currentUserId, supabase, optimisticClearContacts]);
+    // 2. Perform background mutations elegantly with 1 single API call
+    await supabase
+      .from("connections")
+      .delete()
+      .eq("status", "accepted")
+      .or(`requester_id.eq.${currentUserId},receiver_id.eq.${currentUserId}`);
+
+    // 3. Immediately inform peers to drop connections
+    notifyPeers(peersToNotify);
+  }, [currentUserId, supabase, optimisticClearContacts, contacts, notifyPeers]);
+
+  /** Delete a specific contact optimistically */
+  const removeContact = useCallback(async (contactId: string) => {
+    startTransition(() => {
+      optimisticRemoveContact(contactId);
+    });
+
+    // Use 1 single API call with explicit OR groupings
+    await supabase
+      .from("connections")
+      .delete()
+      .eq("status", "accepted")
+      .or(`and(requester_id.eq.${currentUserId},receiver_id.eq.${contactId}),and(receiver_id.eq.${currentUserId},requester_id.eq.${contactId})`);
+
+    notifyPeers([contactId]);
+  }, [currentUserId, supabase, optimisticRemoveContact, notifyPeers]);
 
   /** Get presence status dot color */
   const getStatusColor = (userId: string): string => {
@@ -125,9 +168,12 @@ export default function ContactsList({ currentUserId, presenceMap }: ContactsLis
             data={contacts}
             itemContent={(_, contact) => (
               <div className="py-1">
-                <button
+                <div
                   onClick={() => router.push(`/chat/${contact.username}`)}
-                  className="w-full flex items-center justify-between p-3 rounded-xl transition-all group cursor-pointer"
+                  onKeyDown={(e) => { if (e.key === 'Enter') router.push(`/chat/${contact.username}`) }}
+                  role="button"
+                  tabIndex={0}
+                  className="w-full flex items-center justify-between p-3 rounded-xl transition-all group cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#09637E]/50"
                   style={{ background: colors.surfaceHover }}
                 >
                   <div className="flex items-center gap-3">
@@ -156,8 +202,21 @@ export default function ContactsList({ currentUserId, presenceMap }: ContactsLis
                     <svg className="w-4 h-4 text-gray-500 group-hover:text-[#09637E] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                     </svg>
+
+                    {/* Delete button, shows on hover/focus */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setContactToDelete(contact);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1.5 text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-lg transition-all cursor-pointer shrink-0 ml-1"
+                      title="Delete specific contact"
+                      aria-label="Delete specific contact"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    </button>
                   </div>
-                </button>
+                </div>
               </div>
             )}
           />
@@ -171,6 +230,21 @@ export default function ContactsList({ currentUserId, presenceMap }: ContactsLis
         title="Clear All Contacts"
         message="Are you sure you want to delete all your contacts? This action cannot be undone."
         confirmText="Clear All"
+      />
+
+      {/* Confirmation Modal for Individual Contact Deletion */}
+      <ConfirmationModal
+        isOpen={contactToDelete !== null}
+        onClose={() => setContactToDelete(null)}
+        onConfirm={() => {
+          if (contactToDelete) {
+            removeContact(contactToDelete.id);
+            setContactToDelete(null);
+          }
+        }}
+        title="Delete Contact"
+        message={`Are you sure you want to delete ${contactToDelete?.name}? This action cannot be undone.`}
+        confirmText="Delete"
       />
     </div>
   );

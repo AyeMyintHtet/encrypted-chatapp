@@ -89,6 +89,9 @@ export default function SearchUsers({ currentUserId }: SearchUsersProps) {
       setMessage({ type: "error", text: error.message });
     } else {
       setMessage({ type: "success", text: "Connection request sent!" });
+      setTimeout(() => {
+        setMessage(null)
+      }, 2000)
     }
   };
 
@@ -127,8 +130,8 @@ export default function SearchUsers({ currentUserId }: SearchUsersProps) {
       {/* Status message */}
       {message && (
         <div className={`mt-3 p-2.5 rounded-lg text-sm ${message.type === "success"
-            ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
-            : "bg-red-500/10 border border-red-500/20 text-red-400"
+          ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
+          : "bg-red-500/10 border border-red-500/20 text-red-400"
           }`}>
           {message.text}
         </div>
@@ -156,8 +159,8 @@ export default function SearchUsers({ currentUserId }: SearchUsersProps) {
                 onClick={() => handleConnect(user.id)}
                 disabled={sentRequests.has(user.id)}
                 className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${sentRequests.has(user.id)
-                    ? "bg-white/10 text-gray-400 cursor-not-allowed"
-                    : "bg-[#09637E] hover:bg-[#088395] text-white shadow-lg shadow-[#09637E]/25"
+                  ? "bg-white/10 text-gray-400 cursor-not-allowed"
+                  : "bg-[#09637E] hover:bg-[#088395] text-white shadow-lg shadow-[#09637E]/25"
                   }`}
               >
                 {sentRequests.has(user.id) ? "Sent" : "Connect"}

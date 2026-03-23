@@ -41,8 +41,16 @@ const PendingRequests = dynamic(() => import("@/components/PendingRequests"), {
   ),
 });
 
-// No SSR needed for modals — they're always triggered by client interaction
-const ConfirmationModal = dynamic(() => import("@/components/ConfirmationModal"));
+const OneTimeChat = dynamic(() => import("@/components/OneTimeChat"), {
+  loading: () => (
+    <div className="animate-pulse rounded-2xl h-30" style={{ background: "rgba(9,99,126,0.08)" }} />
+  ),
+});
+
+const ChatAccessError = dynamic(() => import("@/components/ChatAccessError"), {
+  ssr: false,
+});
+
 
 /**
  * Dashboard — the main hub after login.
@@ -139,6 +147,7 @@ export default function DashboardPage() {
             <div className="lg:col-span-1 md:col-span-1 space-y-6">
               <SearchUsers currentUserId={profile.id} />
               <PendingRequests />
+              <OneTimeChat />
             </div>
             <div className="lg:col-span-2 md:col-span-1 col-span-1">
               <ContactsList currentUserId={profile.id} presenceMap={presenceMap} />
@@ -175,6 +184,7 @@ export default function DashboardPage() {
                 >
                   <SearchUsers currentUserId={profile.id} />
                   <PendingRequests />
+                  <OneTimeChat />
                 </m.div>
               )}
 
@@ -255,6 +265,7 @@ export default function DashboardPage() {
         </footer>
 
         <SignOutModal showSignOutConfirm={showSignOutConfirm} setShowSignOutConfirm={setShowSignOutConfirm} />
+        <ChatAccessError />
       </div>
     </LazyMotion>
   );
