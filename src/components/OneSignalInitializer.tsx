@@ -10,6 +10,8 @@ export default function OneSignalInitializer() {
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
+    let isMounted = true;
+    let authSubscription: { unsubscribe: () => void } | null = null;
 
     const initOneSignal = async () => {
       try {
@@ -23,26 +25,51 @@ export default function OneSignalInitializer() {
           serviceWorkerUpdaterPath: "/OneSignalSDKUpdaterWorker.js",
           serviceWorkerParam: { scope: "/" },
           allowLocalhostAsSecureOrigin: true, // For development
-          // notifyButton: {
-          enable: true,
-          // },
+          notifyButton: {
+            enable: true,
+          },
         });
 
         // Identify the user reactively as soon as Supabase Auth state connects
         const supabase = createClient();
+        const syncOneSignalUser = async (externalId: string | null) => {
+          try {
+            if (!isMounted) return;
+
+            const currentExternalId = OneSignal.User.externalId ?? null;
+            if (!externalId) {
+              if (currentExternalId) {
+                await OneSignal.logout();
+              }
+              return;
+            }
+
+            // If account changed in this browser, detach previous alias first.
+            if (currentExternalId && currentExternalId !== externalId) {
+              await OneSignal.logout();
+            }
+
+            if (OneSignal.User.externalId !== externalId) {
+              await OneSignal.login(externalId);
+            }
+          } catch (syncErr) {
+            console.warn("OneSignal user sync skipped:", syncErr);
+          }
+        };
 
         // Grab immediate session if available
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user?.id) {
-          await OneSignal.login(session.user.id);
-        }
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        await syncOneSignalUser(session?.user?.id ?? null);
 
-        // Keep it heavily synced if they sign in/out natively in the same session
-        supabase.auth.onAuthStateChange(async (event, currentSession) => {
-          if (currentSession?.user?.id) {
-            await OneSignal.login(currentSession.user.id);
-          }
+        // Keep OneSignal user context synced with Supabase auth changes.
+        const {
+          data: { subscription },
+        } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
+          await syncOneSignalUser(currentSession?.user?.id ?? null);
         });
+        authSubscription = subscription;
       } catch (err) {
         // OneSignal usually throws if adblocker is active or in incognito, safely ignore
         console.warn("OneSignal Initialization Skipped:", err);
@@ -50,6 +77,11 @@ export default function OneSignalInitializer() {
     };
 
     initOneSignal();
+
+    return () => {
+      isMounted = false;
+      authSubscription?.unsubscribe();
+    };
   }, []);
 
   return null;
