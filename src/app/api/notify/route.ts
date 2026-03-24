@@ -22,7 +22,7 @@ export async function POST(req: Request) {
       headings: { en: "CQgram Secure" },
       contents: { en: `New encrypted message from ${sender_name}` }
     };
-
+    console.log("Payload:", payload);
     const response = await fetch('https://api.onesignal.com/notifications?c=push', {
       method: 'POST',
       headers: {
@@ -33,6 +33,22 @@ export async function POST(req: Request) {
     });
 
     const data = await response.json();
+
+    // Gracefully handle expected OneSignal states where the receiver hasn't logged in
+    // or hasn't accepted push notification permissions yet. 
+    // We don't want to throw 500 errors for these; they are normal user states.
+    if (data.errors) {
+      const hasInvalidAlias = data.errors.invalid_aliases;
+      const isUnsubscribed = Array.isArray(data.errors) && data.errors.includes("All included players are not subscribed");
+      
+      if (hasInvalidAlias || isUnsubscribed) {
+        return NextResponse.json({ 
+          success: true, 
+          message: 'Notification skipped. Receiver is not registered or subscribed to push notifications yet.' 
+        });
+      }
+    }
+
     return NextResponse.json({ success: true, data });
   } catch (error) {
     return NextResponse.json({ error: 'Internal server error while sending notification' }, { status: 500 });
