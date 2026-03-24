@@ -23,14 +23,14 @@ export default function OneSignalInitializer() {
           serviceWorkerUpdaterPath: "/OneSignalSDKUpdaterWorker.js",
           serviceWorkerParam: { scope: "/" },
           allowLocalhostAsSecureOrigin: true, // For development
-          notifyButton: {
-            enable: true,
-          },
+          // notifyButton: {
+          enable: true,
+          // },
         });
 
         // Identify the user reactively as soon as Supabase Auth state connects
         const supabase = createClient();
-        
+
         // Grab immediate session if available
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user?.id) {
