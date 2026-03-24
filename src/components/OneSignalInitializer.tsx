@@ -25,9 +25,6 @@ export default function OneSignalInitializer() {
           serviceWorkerUpdaterPath: "/OneSignalSDKUpdaterWorker.js",
           serviceWorkerParam: { scope: "/" },
           allowLocalhostAsSecureOrigin: true, // For development
-          notifyButton: {
-            enable: true,
-          },
         });
 
         // Identify the user reactively as soon as Supabase Auth state connects

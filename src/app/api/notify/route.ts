@@ -26,6 +26,8 @@ export async function POST(req: Request) {
         external_id: [receiver_id],
       },
       target_channel: "push",
+      // Your app currently sends web push; avoid mobile-platform warnings/noise.
+      isAnyWeb: true,
       template_id: ONESIGNAL_TEMPLATE_ID,
       custom_data: {
         sender_name,
