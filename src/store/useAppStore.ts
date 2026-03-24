@@ -43,6 +43,9 @@ interface AppState {
   fetchContacts: (currentUserId: string) => Promise<void>;
   fetchPendingRequests: (currentUserId: string) => Promise<void>;
   searchUsers: (currentUserId: string, query: string) => Promise<void>;
+  
+  // Reset all state
+  clearStore: () => void;
 }
 
 // Global abort controllers map for cancellation
@@ -85,6 +88,18 @@ export const useAppStore = create<AppState>()(
       setMessages: (messages) => set({ messages }),
       addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
       
+      clearStore: () => set({
+        contacts: [],
+        contactsByUser: {},
+        activeContactsUserId: null,
+        pendingRequests: [],
+        searchResults: [],
+        messages: [],
+        isContactsLoading: true,
+        isRequestsLoading: true,
+        isSearching: false,
+      }),
+
       optimisticClearContacts: () =>
         set((state) => {
           const currentUserId = state.activeContactsUserId;

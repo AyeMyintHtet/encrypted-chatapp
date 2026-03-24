@@ -388,6 +388,19 @@ export default function ChatPage() {
       });
       setInputValue("");
       setSecureChannelError(null);
+
+      // Trigger standard push notification via our secure backend if peer isn't visually active
+      if (peerProfile?.id && getPeerStatus() === "active") {
+        fetch('/api/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            receiver_id: peerProfile.id,
+            sender_name: currentProfile.name,
+          })
+        }).catch(() => { /* Silent fail */ });
+      }
+
     } catch {
       setSecureChannelError("Unable to encrypt and send this message.");
     }

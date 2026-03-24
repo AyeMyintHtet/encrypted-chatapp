@@ -7,9 +7,10 @@ import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import { createClient } from "@/lib/supabase/client";
 import { useCurrentProfile } from "@/hooks/useProfile";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 export default function OneTimeChat() {
+  const queryClient = useQueryClient();
   const { theme } = useTheme();
   const colors = THEME_CONFIG[theme as ThemeType];
 
@@ -58,6 +59,13 @@ export default function OneTimeChat() {
     expiresAt.setDate(expiresAt.getDate() + 1);
 
     const supabase = createClient();
+    
+    // Destroy any existing active one-time chats for this user first
+    await supabase.from('quick_chats')
+      .update({ is_destroyed: true })
+      .eq('creator_id', profile.id)
+      .eq('is_destroyed', false);
+
     const { error } = await supabase.from('quick_chats').insert({
       id: uniqueId,
       creator_id: profile.id,
@@ -72,9 +80,21 @@ export default function OneTimeChat() {
       return;
     }
     
+    queryClient.invalidateQueries({ queryKey: ['active-quick-chat', profile?.id] });
     const link = `${window.location.origin}/quick-chat/otc-${uniqueId}`;
     setGeneratedLink(link);
     setCopied(false);
+  };
+
+  const handleDestroyAndReset = async () => {
+    const currentId = generatedLink?.split('otc-')[1] || existingChatId;
+    if (currentId) {
+      const supabase = createClient();
+      await supabase.from('quick_chats').update({ is_destroyed: true }).eq('id', currentId);
+    }
+    setGeneratedLink(null);
+    setManuallyHidden(true);
+    queryClient.invalidateQueries({ queryKey: ['active-quick-chat', profile?.id] });
   };
 
   const handleCopy = async () => {
@@ -139,14 +159,11 @@ export default function OneTimeChat() {
             </button>
           </div>
           <button
-            onClick={() => {
-              setGeneratedLink(null);
-              setManuallyHidden(true);
-            }}
+            onClick={handleDestroyAndReset}
             className="text-xs self-start mt-2 hover:underline cursor-pointer transition-colors"
             style={{ color: colors.textTertiary }}
           >
-            Generate a new link
+            Destroy current link and create a new one
           </button>
         </div>
       )}

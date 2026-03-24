@@ -176,6 +176,41 @@ const EditableSettingItem = memo(function EditableSettingItem({
   );
 });
 
+const parseUserAgent = (ua: string | null) => {
+  if (!ua) return { browser: "Unknown Browser", os: "Unknown OS" };
+  
+  let browser = "Unknown Browser";
+  if (ua.includes("Firefox/")) browser = "Firefox";
+  else if (ua.includes("Edg/")) browser = "Edge";
+  else if (ua.includes("Chrome/") || ua.includes("CriOS/")) browser = "Chrome";
+  else if (ua.includes("Safari/") && !ua.includes("Chrome")) browser = "Safari";
+  
+  let os = "Unknown OS";
+  if (ua.includes("iPhone") || ua.includes("iPad") || ua.includes("iPod")) os = "iOS";
+  else if (ua.includes("Android")) os = "Android";
+  else if (ua.includes("Mac OS X")) os = "macOS";
+  else if (ua.includes("Windows NT 10.0")) os = "Windows 10/11";
+  else if (ua.includes("Windows NT")) os = "Windows";
+  else if (ua.includes("Linux")) os = "Linux";
+  
+  return { browser, os };
+};
+
+const formatTimeAgo = (dateString: string) => {
+  if (!dateString) return "Unknown time";
+  const date = new Date(dateString);
+  const diffInMinutes = Math.floor((Date.now() - date.getTime()) / 60000);
+  
+  if (diffInMinutes < 1) return "Just now";
+  if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  if (diffInHours < 24) return `${diffInHours}h ago`;
+  const diffInDays = Math.floor(diffInHours / 24);
+  if (diffInDays < 30) return `${diffInDays}d ago`;
+  
+  return date.toLocaleDateString();
+};
+
 export default function ProfileComponent({
   setShowSignOutConfirm,
 }: {
@@ -368,8 +403,9 @@ export default function ProfileComponent({
         ) : (
           sessions?.map((session) => {
             const isCurrent = session.id === currentSessionId;
-            const isMobile = /Mobi|Android/i.test(session.user_agent);
+            const isMobile = /Mobi|Android|iPhone|iPad/i.test(session.user_agent);
             const DeviceIcon = isMobile ? Smartphone : Monitor;
+            const { browser, os } = parseUserAgent(session.user_agent);
 
             return (
               <div
@@ -384,13 +420,17 @@ export default function ProfileComponent({
                   <DeviceIcon className="w-4 h-4 md:w-5 md:h-5" />
                 </div>
 
-                <div className="flex-1 min-w-0">
-                  <p className="text-[14px] md:text-[15px] font-semibold truncate" style={{ color: colors.textPrimary }}>
-                    {session.ip || "Unknown IP address"}
-                  </p>
-                  <p className="text-[11px] md:text-[12px] truncate mt-0.5 transition-colors" style={{ color: colors.textTertiary }}>
-                    {session.user_agent ? session.user_agent.split(' ').slice(0, 3).join(' ') : "Unknown Device"}
-                    {isCurrent && <span className="text-[#10B981] ml-2 font-semibold">Current Device</span>}
+                <div className="flex-1 min-w-0 flex flex-col justify-center">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <p className="text-[14px] md:text-[15px] font-bold truncate flex items-center gap-2" style={{ color: colors.textPrimary }}>
+                      {os} <span className="opacity-50 font-normal text-xs px-1">•</span> {browser}
+                      {isCurrent && <span className="text-[10px] md:text-[11px] px-1.5 py-0.5 rounded-md font-bold text-[#10B981] bg-[#10B981]/10">Current</span>}
+                    </p>
+                  </div>
+                  <p className="text-[11px] md:text-[12px] truncate transition-colors flex items-center gap-1.5" style={{ color: colors.textTertiary }}>
+                    <span className="font-medium">{session.ip || "Unknown IP address"}</span>
+                    <span className="opacity-50">•</span>
+                    <span>Last active {formatTimeAgo(session.updated_at)}</span>
                   </p>
                 </div>
 

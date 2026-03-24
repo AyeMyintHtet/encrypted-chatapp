@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { LazyMotion, domMax, m, AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
 
@@ -76,7 +76,15 @@ export default function DashboardPage() {
     // No chatWith = we're on dashboard, so status = "offline"
   );
 
-
+  // Authenticate user with OneSignal for targeted push notifications
+  useEffect(() => {
+    if (profile?.id && typeof window !== "undefined") {
+      const OneSignalDeferred = (window as any).OneSignalDeferred || [];
+      OneSignalDeferred.push(async function(OneSignal: any) {
+        await OneSignal.login(profile.id);
+      });
+    }
+  }, [profile?.id]);
 
   // We reinstate showSignOutConfirm because I deleted the hook inadvertently!
   const [showSignOutConfirm, setShowSignOutConfirm] = useState<boolean>(false);
