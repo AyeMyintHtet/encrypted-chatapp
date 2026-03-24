@@ -21,13 +21,21 @@ export default function OneSignalInitializer() {
           } as any,
         });
 
-        // Identify the user (Sync with Supabase Auth)
+        // Identify the user reactively as soon as Supabase Auth state connects
         const supabase = createClient();
-        const { data: { session } } = await supabase.auth.getSession();
         
+        // Grab immediate session if available
+        const { data: { session } } = await supabase.auth.getSession();
         if (session?.user?.id) {
           await OneSignal.login(session.user.id);
         }
+
+        // Keep it heavily synced if they sign in/out natively in the same session
+        supabase.auth.onAuthStateChange(async (event, currentSession) => {
+          if (currentSession?.user?.id) {
+            await OneSignal.login(currentSession.user.id);
+          }
+        });
       } catch (err) {
         // OneSignal usually throws if adblocker is active or in incognito, safely ignore
         console.warn("OneSignal Initialization Skipped:", err);
