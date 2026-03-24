@@ -13,12 +13,19 @@ export default function OneSignalInitializer() {
 
     const initOneSignal = async () => {
       try {
+        const appId =
+          process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID ??
+          "788c64e8-1513-4d95-8391-404813c2d5df";
+
         await OneSignal.init({
-          appId: "788c64e8-1513-4d95-8391-404813c2d5df",
+          appId,
+          serviceWorkerPath: "/OneSignalSDKWorker.js",
+          serviceWorkerUpdaterPath: "/OneSignalSDKUpdaterWorker.js",
+          serviceWorkerParam: { scope: "/" },
           allowLocalhostAsSecureOrigin: true, // For development
           notifyButton: {
             enable: true,
-          } as any,
+          },
         });
 
         // Identify the user reactively as soon as Supabase Auth state connects

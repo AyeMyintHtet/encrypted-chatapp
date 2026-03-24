@@ -17,8 +17,7 @@ export async function POST(req: Request) {
 
     const payload = {
       app_id: ONESIGNAL_APP_ID,
-      include_aliases: { external_id: [receiver_id] },
-      target_channel: "push",
+      include_external_user_ids: [receiver_id],
       headings: { en: "CQgram Secure" },
       contents: { en: `New encrypted message from ${sender_name}` }
     };
@@ -34,19 +33,14 @@ export async function POST(req: Request) {
 
     const data = await response.json();
 
-    // Gracefully handle expected OneSignal states where the receiver hasn't logged in
-    // or hasn't accepted push notification permissions yet. 
-    // We don't want to throw 500 errors for these; they are normal user states.
+    // Output exact OneSignal errors to Next.js console to understand exactly why it failed
     if (data.errors) {
-      const hasInvalidAlias = data.errors.invalid_aliases;
-      const isUnsubscribed = Array.isArray(data.errors) && data.errors.includes("All included players are not subscribed");
-      
-      if (hasInvalidAlias || isUnsubscribed) {
-        return NextResponse.json({ 
-          success: true, 
-          message: 'Notification skipped. Receiver is not registered or subscribed to push notifications yet.' 
-        });
-      }
+      console.warn("OneSignal Explicit Errors:", data.errors);
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Notification skipped with exact OneSignal API error.',
+        onesignal_errors: data.errors 
+      }, { status: 200 }); // Keep 200 so UI doesn't crash, but expose errors to network tab
     }
 
     return NextResponse.json({ success: true, data });
