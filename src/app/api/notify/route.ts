@@ -28,10 +28,10 @@ export async function POST(req: Request) {
       target_channel: "push",
       // Your app currently sends web push; avoid mobile-platform warnings/noise.
       // isAnyWeb: true,
-      // template_id: ONESIGNAL_TEMPLATE_ID,
-      // custom_data: {
-      //   sender_name,
-      // },
+      template_id: ONESIGNAL_TEMPLATE_ID,
+      custom_data: {
+        sender_name,
+      },
       // Fallback text if template content cannot be rendered.
       headings: { en: "CQgram Secure" },
       contents: { en: `New encrypted message from ${sender_name}` }
