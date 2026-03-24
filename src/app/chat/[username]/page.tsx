@@ -390,7 +390,7 @@ export default function ChatPage() {
       setSecureChannelError(null);
 
       // Trigger standard push notification via our secure backend if peer isn't visually active
-      if (peerProfile?.id && getPeerStatus() === "active") {
+      if (peerProfile?.id && getPeerStatus() !== "active") {
         fetch('/api/notify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
