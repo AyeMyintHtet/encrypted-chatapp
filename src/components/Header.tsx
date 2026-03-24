@@ -9,7 +9,13 @@ export default function Header({ profile, setShowSignOutConfirm }: { profile?: a
   const colors = THEME_CONFIG[theme as ThemeType];
   const router = useRouter();
   return (
-    <header className="relative z-10" style={{ borderBottom: `1px solid ${colors.borderMuted}` }}>
+    <header 
+      className="sticky top-0 w-full z-50 backdrop-blur-xl transition-colors duration-300" 
+      style={{ 
+        background: theme === 'dark' ? 'rgba(3, 7, 18, 0.8)' : 'rgba(249, 248, 246, 0.8)',
+        borderBottom: `1px solid ${colors.borderMuted}` 
+      }}
+    >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
         <div className="cursor-pointer flex items-center"
           onClick={() => router.push('/dashboard')}

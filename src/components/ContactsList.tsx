@@ -116,7 +116,7 @@ export default function ContactsList({ currentUserId, presenceMap }: ContactsLis
   // If we have cached contacts, we render immediately.
   if (isContactsLoading && contacts.length === 0) {
     return (
-      <div className="backdrop-blur-sm rounded-2xl p-6" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+      <div className="backdrop-blur-sm rounded-2xl p-6 hide-scrollbar" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
         <h2 className="text-lg font-semibold mb-4" style={{ color: colors.textPrimary }}>Contacts</h2>
         <div className="space-y-4">
           {[1, 2, 3].map(i => (

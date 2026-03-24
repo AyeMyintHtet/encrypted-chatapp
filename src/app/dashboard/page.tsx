@@ -227,7 +227,7 @@ export default function DashboardPage() {
                 <button
                   aria-label={id}
                   key={id}
-                  onClick={() => setActiveTab(id)}
+                  onClick={() => [setActiveTab(id), window.scrollTo(0, 0)]}
                   className="relative flex flex-col items-center justify-center w-12 h-12"
                 >
                   {/* Active Indicator Background */}

@@ -85,7 +85,7 @@ export default function RootLayout({
           <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL} crossOrigin="anonymous" />
         )}
       </head>
-      <body className={`${inter.variable} font-sans antialiased overflow-hidden`}>
+      <body className={`${inter.variable} font-sans antialiased`}>
         <QueryProvider>
           <ThemeProvider>
             <GlobalLoadingProvider>

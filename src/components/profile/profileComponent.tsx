@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, memo } from "react";
-import { THEME_CONFIG, type ThemeType, type ThemeColors } from "@/constants/theme";
+import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import { useTheme } from "@/context/ThemeContext";
 import { useCurrentProfile } from "@/hooks/useProfile";
 import { createClient } from "@/lib/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
+import ConfirmationModal from "@/components/ConfirmationModal";
 import {
   Camera,
   User as UserIcon,
@@ -16,7 +17,11 @@ import {
   Moon,
   Sun,
   Loader2,
+  Monitor,
+  Smartphone,
+  Trash2,
 } from "lucide-react";
+import { useUserSessions, useCurrentSessionId, useDeleteSession } from "@/hooks/useSessions";
 
 /**
  * Reusable, memoized component for inline editing of profile fields.
@@ -177,6 +182,12 @@ export default function ProfileComponent({
   setShowSignOutConfirm: (value: boolean) => void;
 }) {
   const { data: profile, isLoading } = useCurrentProfile();
+  const { data: sessions, isLoading: sessionsLoading, error: sessionsError } = useUserSessions();
+  const { data: currentSessionId } = useCurrentSessionId();
+  const deleteSession = useDeleteSession();
+
+  const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
+
   const { theme, toggleTheme } = useTheme();
   const colors = THEME_CONFIG[theme as ThemeType];
   const queryClient = useQueryClient();
@@ -201,7 +212,7 @@ export default function ProfileComponent({
       }
 
       // Optimistic cache update (rerender-functional-setstate)
-      queryClient.setQueryData(["currentProfile"], (old: any) => {
+      queryClient.setQueryData(["currentProfile"], (old: Record<string, unknown> | undefined) => {
         if (!old) return old;
         return {
           ...old,
@@ -210,8 +221,8 @@ export default function ProfileComponent({
       });
 
       return { success: true };
-    } catch (e: any) {
-      return { success: false, error: e.message };
+    } catch (e: unknown) {
+      return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
     }
   };
 
@@ -226,7 +237,7 @@ export default function ProfileComponent({
   if (!profile) return null;
 
   return (
-    <div className="w-full max-w-lg mx-auto flex flex-col gap-4 md:gap-6">
+    <div className="w-full max-w-lg mx-auto flex flex-col gap-4 md:gap-6 pb-32 md:pb-6">
       <div className="flex flex-col items-center pt-4 md:pt-8 pb-2 md:pb-4">
         <div className="relative group cursor-pointer mb-3 md:mb-5">
           <div className="w-20 h-20 md:w-28 md:h-28 bg-linear-to-br from-[#09637E] to-[#088395] rounded-full flex items-center justify-center shadow-xl transition-transform duration-300 group-hover:scale-105">
@@ -330,6 +341,80 @@ export default function ProfileComponent({
         </button>
       </div>
 
+      {/* Active Sessions List */}
+      <div
+        className="rounded-xl md:rounded-2xl overflow-hidden shadow-sm flex flex-col"
+        style={{ background: colors.surface, border: `1px solid ${colors.border}` }}
+      >
+        <div
+          className="px-4 py-2 md:py-2.5 text-[11px] md:text-[12px] font-bold uppercase tracking-wider"
+          style={{ background: colors.surfaceHover, color: colors.textSecondary }}
+        >
+          Active Sessions
+        </div>
+
+        {sessionsLoading ? (
+          <div className="p-4 text-center text-sm" style={{ color: colors.textSecondary }}>
+            Loading sessions...
+          </div>
+        ) : sessionsError ? (
+          <div className="p-4 text-center text-sm" style={{ color: colors.textSecondary }}>
+            <p>Active sessions not available.</p>
+          </div>
+        ) : sessions?.length === 0 ? (
+          <div className="p-4 text-center text-sm" style={{ color: colors.textSecondary }}>
+            No active sessions found.
+          </div>
+        ) : (
+          sessions?.map((session) => {
+            const isCurrent = session.id === currentSessionId;
+            const isMobile = /Mobi|Android/i.test(session.user_agent);
+            const DeviceIcon = isMobile ? Smartphone : Monitor;
+
+            return (
+              <div
+                key={session.id}
+                className="w-full flex items-center gap-3 md:gap-4 p-3 md:p-4 transition-colors text-left group"
+                style={{ borderBottom: `1px solid ${colors.borderMuted}` }}
+              >
+                <div
+                  className="w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center shrink-0 transition-colors shadow-sm"
+                  style={{ background: colors.surfaceHover, color: isCurrent ? '#10B981' : colors.accent }}
+                >
+                  <DeviceIcon className="w-4 h-4 md:w-5 md:h-5" />
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] md:text-[15px] font-semibold truncate" style={{ color: colors.textPrimary }}>
+                    {session.ip || "Unknown IP address"}
+                  </p>
+                  <p className="text-[11px] md:text-[12px] truncate mt-0.5 transition-colors" style={{ color: colors.textTertiary }}>
+                    {session.user_agent ? session.user_agent.split(' ').slice(0, 3).join(' ') : "Unknown Device"}
+                    {isCurrent && <span className="text-[#10B981] ml-2 font-semibold">Current Device</span>}
+                  </p>
+                </div>
+
+                {!isCurrent && (
+                  <button
+                    onClick={() => setSessionToDelete(session.id)}
+                    disabled={deleteSession.isPending}
+                    className="shrink-0 p-2 rounded-full transition-colors cursor-pointer hover:bg-red-500/10"
+                    style={{ color: "#EF4444" }}
+                    title="Logout device"
+                  >
+                    {deleteSession.isPending ? (
+                      <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4 md:w-5 md:h-5" />
+                    )}
+                  </button>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+
       {/* Sign Out Button */}
       <div
         className="rounded-xl md:rounded-2xl overflow-hidden shadow-sm flex flex-col mt-1 md:mt-2 mb-6"
@@ -344,6 +429,22 @@ export default function ProfileComponent({
           Sign Out
         </button>
       </div>
+
+      <ConfirmationModal
+        isOpen={!!sessionToDelete}
+        onClose={() => setSessionToDelete(null)}
+        onConfirm={() => {
+          if (sessionToDelete) {
+            deleteSession.mutate(sessionToDelete);
+            setSessionToDelete(null);
+          }
+        }}
+        title="Log Out Device"
+        message="Are you sure you want to log out this device? It will be disconnected immediately."
+        confirmText="Log Out"
+        cancelText="Cancel"
+        type="danger"
+      />
     </div>
   );
 }
