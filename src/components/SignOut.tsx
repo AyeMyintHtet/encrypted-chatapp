@@ -2,6 +2,7 @@ import { useRouter } from "next/navigation";
 import ConfirmationModal from "./ConfirmationModal";
 import { useGlobalLoading } from "@/context/GlobalLoadingContext";
 import { useAppStore } from "@/store/useAppStore";
+import OneSignal from "react-onesignal";
 
 export default function SignOutModal({ showSignOutConfirm, setShowSignOutConfirm }: { showSignOutConfirm: boolean, setShowSignOutConfirm: (value: boolean) => void }) {
   const router = useRouter();
@@ -29,11 +30,10 @@ export default function SignOutModal({ showSignOutConfirm, setShowSignOutConfirm
     });
 
     // Unlink device from OneSignal so they don't get push notifications for this account
-    if (typeof window !== "undefined") {
-      const OneSignalDeferred = (window as any).OneSignalDeferred || [];
-      OneSignalDeferred.push(async function(OneSignal: any) {
-        await OneSignal.logout();
-      });
+    try {
+      await OneSignal.logout();
+    } catch {
+      // Ignore if not initialized
     }
 
     // Wipe all browser storage to ensure a clean slate, except for global theme setup

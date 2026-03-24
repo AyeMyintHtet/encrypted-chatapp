@@ -5,6 +5,7 @@ import QueryProvider from "@/context/QueryProvider";
 import { GlobalLoadingProvider } from "@/context/GlobalLoadingContext";
 import dynamic from "next/dynamic";
 import Script from "next/script";
+import OneSignalInitializer from "@/components/OneSignalInitializer";
 import "./globals.css";
 
 const OfflineOverlay = dynamic(() => import("@/components/OfflineOverlay"));
@@ -88,20 +89,7 @@ export default function RootLayout({
 
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
-        <Script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer />
-        <Script id="onesignal-init">
-          {`
- window.OneSignalDeferred = window.OneSignalDeferred || [];
-  OneSignalDeferred.push(async function(OneSignal) {
-    await OneSignal.init({
-      appId: "788c64e8-1513-4d95-8391-404813c2d5df",
-      notifyButton: {
-        enable: true,
-      },
-    });
-  });
-          `}
-        </Script>
+        <OneSignalInitializer />
         <QueryProvider>
           <ThemeProvider>
             <GlobalLoadingProvider>
