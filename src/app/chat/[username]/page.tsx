@@ -390,8 +390,8 @@ export default function ChatPage() {
       setInputValue("");
       setSecureChannelError(null);
 
-      // Send push only when the peer is not currently active in this chat view.
-      if (peerProfile?.id && getPeerStatus() !== "active") {
+      // Send push for every outgoing message so receiver gets background notifications.
+      if (peerProfile?.id) {
         const webUrl = `${window.location.origin}/chat/${currentProfile.username}`;
         void sendPushNotification({
           receiverId: peerProfile.id,

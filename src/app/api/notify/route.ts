@@ -18,6 +18,20 @@ function getReceiverIds(body: NotifyRequestBody): string[] {
   return [...new Set(merged.map((id) => id.trim()).filter(Boolean))];
 }
 
+async function readOneSignalResponse(response: Response): Promise<{
+  parsed: unknown;
+  raw: string | null;
+}> {
+  const raw = await response.text().catch(() => "");
+  if (!raw) return { parsed: null, raw: null };
+
+  try {
+    return { parsed: JSON.parse(raw), raw };
+  } catch {
+    return { parsed: null, raw };
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as NotifyRequestBody;
@@ -59,26 +73,40 @@ export async function POST(req: Request) {
       cache: "no-store",
     });
 
-    const data = await response.json().catch(() => null);
+    const { parsed, raw } = await readOneSignalResponse(response);
 
     if (!response.ok) {
+      console.warn("[notify] OneSignal request failed", {
+        status: response.status,
+        statusText: response.statusText,
+        response: parsed ?? raw,
+      });
       return NextResponse.json(
         {
           success: false,
           message: 'OneSignal request failed.',
-          status: response.status,
-          data,
+          onesignal_status: response.status,
+          onesignal_status_text: response.statusText,
+          onesignal_response: parsed ?? raw,
         },
         { status: 502 }
       );
     }
+
+    const data = parsed as
+      | {
+          errors?: unknown;
+          warnings?: { invalid_external_user_ids?: string };
+        }
+      | null;
 
     if (data?.errors) {
       console.warn("OneSignal Explicit Errors:", data.errors);
       return NextResponse.json({ 
         success: false, 
         message: 'Notification skipped with exact OneSignal API error.',
-        onesignal_errors: data.errors 
+        onesignal_errors: data.errors,
+        onesignal_response: data,
       }, { status: 200 });
     }
 
@@ -93,12 +121,20 @@ export async function POST(req: Request) {
         delivered: false,
         reason: "recipient_unsubscribed",
         warning: invalidExternalIdsWarning,
-        data,
+        onesignal_response: data,
       });
     }
 
-    return NextResponse.json({ success: true, delivered: true, data });
-  } catch {
-    return NextResponse.json({ error: 'Internal server error while sending notification' }, { status: 500 });
+    return NextResponse.json({ success: true, delivered: true, onesignal_response: data });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("[notify] Internal error:", errorMessage);
+    return NextResponse.json(
+      {
+        error: 'Internal server error while sending notification',
+        detail: errorMessage,
+      },
+      { status: 500 }
+    );
   }
 }

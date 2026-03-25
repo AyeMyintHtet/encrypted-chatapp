@@ -239,13 +239,13 @@ export default function QuickChatPage() {
       payload: msg,
     });
 
-    const idleRecipientIds = Object.values(participants)
-      .filter((participant) => participant.id !== currentProfile.id && participant.status !== "active")
+    const recipientIds = Object.values(participants)
+      .filter((participant) => participant.id !== currentProfile.id)
       .map((participant) => participant.id);
 
-    if (idleRecipientIds.length > 0) {
+    if (recipientIds.length > 0) {
       void sendPushNotification({
-        receiverIds: idleRecipientIds,
+        receiverIds: recipientIds,
         senderName: currentProfile.name,
         webUrl: window.location.href,
       });

@@ -36,6 +36,12 @@ export default function OneSignalInitializer() {
 
     let isMounted = true;
     let authSubscription: { unsubscribe: () => void } | null = null;
+    const pushSubscriptionChangeListener = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      await syncAuthenticatedUser(session?.user ?? null);
+    };
     const supabase = createClient();
 
     const syncAuthenticatedUser = async (user: User | null) => {
@@ -77,6 +83,11 @@ export default function OneSignalInitializer() {
         } = await supabase.auth.getSession();
         await syncAuthenticatedUser(session?.user ?? null);
 
+        OneSignal.User.PushSubscription.addEventListener(
+          "change",
+          pushSubscriptionChangeListener
+        );
+
         const {
           data: { subscription },
         } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
@@ -92,6 +103,10 @@ export default function OneSignalInitializer() {
 
     return () => {
       isMounted = false;
+      OneSignal.User.PushSubscription.removeEventListener(
+        "change",
+        pushSubscriptionChangeListener
+      );
       authSubscription?.unsubscribe();
     };
   }, []);
