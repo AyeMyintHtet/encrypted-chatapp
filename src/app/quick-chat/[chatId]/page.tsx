@@ -10,6 +10,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import ThemeToggle from "@/components/ThemeToggle";
 import dynamic from "next/dynamic";
+import { sendPushNotification } from "@/lib/onesignal/notify";
 
 const ConfirmationModal = dynamic(() => import("@/components/ConfirmationModal"));
 
@@ -237,6 +238,19 @@ export default function QuickChatPage() {
       event: "message",
       payload: msg,
     });
+
+    const idleRecipientIds = Object.values(participants)
+      .filter((participant) => participant.id !== currentProfile.id && participant.status !== "active")
+      .map((participant) => participant.id);
+
+    if (idleRecipientIds.length > 0) {
+      void sendPushNotification({
+        receiverIds: idleRecipientIds,
+        senderName: currentProfile.name,
+        webUrl: window.location.href,
+      });
+    }
+
     setInputValue("");
   };
 

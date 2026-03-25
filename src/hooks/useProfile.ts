@@ -1,9 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { hasAcceptedConnection } from "@/lib/chat-access";
 import { useRouter } from "next/navigation";
 import type { Profile } from "@/lib/types";
-import { useGlobalLoading } from "@/context/GlobalLoadingContext";
+import { signOutAndClearClientState } from "@/lib/auth/clientSignOut";
 
 /**
  * Shared hook to fetch the current authenticated user's profile.
@@ -12,6 +12,7 @@ import { useGlobalLoading } from "@/context/GlobalLoadingContext";
 export function useCurrentProfile() {
   const supabase = createClient();
   const router = useRouter();
+  const queryClient = useQueryClient();
   return useQuery({
     queryKey: ["currentProfile"],
     queryFn: async () => {
@@ -32,12 +33,7 @@ export function useCurrentProfile() {
 
       // Handle session expiration immediately
       if (error && (error.code === "406" || error.message?.includes("406"))) {
-        await supabase.auth.signOut();
-        document.cookie.split(";").forEach((c) => {
-          document.cookie =
-            c.trim().split("=")[0] +
-            "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
-        });
+        await signOutAndClearClientState(queryClient);
         router.push("/login");
         throw new Error("Session expired");
       }
@@ -57,6 +53,7 @@ export function useCurrentProfile() {
 export function usePeerProfile(username: string) {
   const supabase = createClient();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   return useQuery({
     queryKey: ["profile", username],
@@ -70,12 +67,7 @@ export function usePeerProfile(username: string) {
         .single();
 
       if (error && (error.code === "406" || error.message?.includes("406"))) {
-        await supabase.auth.signOut();
-        document.cookie.split(";").forEach((c) => {
-          document.cookie =
-            c.trim().split("=")[0] +
-            "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
-        });
+        await signOutAndClearClientState(queryClient);
         router.push("/login");
         throw new Error("Session expired");
       }

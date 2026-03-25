@@ -1,48 +1,19 @@
 import { useRouter } from "next/navigation";
 import ConfirmationModal from "./ConfirmationModal";
 import { useGlobalLoading } from "@/context/GlobalLoadingContext";
-import { useAppStore } from "@/store/useAppStore";
-import OneSignal from "react-onesignal";
+import { useQueryClient } from "@tanstack/react-query";
+import { signOutAndClearClientState } from "@/lib/auth/clientSignOut";
 
 export default function SignOutModal({ showSignOutConfirm, setShowSignOutConfirm }: { showSignOutConfirm: boolean, setShowSignOutConfirm: (value: boolean) => void }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { setIsLoading } = useGlobalLoading();
 
   /** Sign out and redirect to login */
   const handleSignOut = async () => {
     setIsLoading(true);
 
-    try {
-      const { createClient } = await import('@/lib/supabase/client');
-      const supabase = createClient();
-      await supabase.auth.signOut();
-    } catch (e) {
-      console.error(e);
-    }
-
-    // Fully clear global Zustand application state and local storage cache
-    useAppStore.getState().clearStore();
-    useAppStore.persist.clearStorage();
-
-    // Completely wipe out frontend cookies to prevent lingering stale sessions
-    document.cookie.split(";").forEach((c) => {
-      document.cookie = c.trim().split("=")[0] + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
-    });
-
-    // Unlink device from OneSignal so they don't get push notifications for this account
-    try {
-      await OneSignal.logout();
-    } catch {
-      // Ignore if not initialized
-    }
-
-    // Wipe all browser storage to ensure a clean slate, except for global theme setup
-    const savedTheme = localStorage.getItem("chatapp-theme");
-    localStorage.clear();
-    sessionStorage.clear();
-    if (savedTheme) {
-      localStorage.setItem("chatapp-theme", savedTheme);
-    }
+    await signOutAndClearClientState(queryClient);
     router.push("/login");
 
     router.refresh();

@@ -1,52 +1,65 @@
 import { NextResponse } from 'next/server';
+import { ONESIGNAL_APP_ID } from '@/lib/onesignal/config';
+
+type NotifyRequestBody = {
+  receiver_id?: string;
+  receiver_ids?: string[];
+  sender_name?: string;
+  message?: string;
+  web_url?: string;
+};
+
+function getReceiverIds(body: NotifyRequestBody): string[] {
+  const merged = [
+    ...(typeof body.receiver_id === "string" ? [body.receiver_id] : []),
+    ...(Array.isArray(body.receiver_ids) ? body.receiver_ids : []),
+  ];
+
+  return [...new Set(merged.map((id) => id.trim()).filter(Boolean))];
+}
 
 export async function POST(req: Request) {
   try {
-    const { receiver_id, sender_name } = await req.json();
+    const body = (await req.json()) as NotifyRequestBody;
+    const senderName = body.sender_name?.trim() ?? "";
+    const receiverIds = getReceiverIds(body);
     
-    if (!receiver_id || !sender_name) {
+    if (receiverIds.length === 0 || !senderName) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const ONESIGNAL_APP_ID =
-      process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID ||
-      "788c64e8-1513-4d95-8391-404813c2d5df";
-    const ONESIGNAL_TEMPLATE_ID =
-      process.env.ONESIGNAL_TEMPLATE_ID ||
-      "f31945d1-8ef0-4de9-819e-240a4959f5a5";
     const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY;
 
     if (!ONESIGNAL_REST_API_KEY) {
       return NextResponse.json({ error: 'OneSignal REST API key missing from server environment.' }, { status: 500 });
     }
 
+    const safeMessage = body.message?.trim();
+    const safeWebUrl = body.web_url?.trim();
+
     const payload = {
       app_id: ONESIGNAL_APP_ID,
       include_aliases: {
-        external_id: [receiver_id],
+        external_id: receiverIds,
       },
       target_channel: "push",
-      // Your app currently sends web push; avoid mobile-platform warnings/noise.
-      // isAnyWeb: true,
-      // template_id: ONESIGNAL_TEMPLATE_ID,
-      // custom_data: {
-      //   sender_name,
-      // },
-      // Fallback text if template content cannot be rendered.
+      isAnyWeb: true,
       headings: { en: "CQgram Secure" },
-      contents: { en: `New encrypted message from ${sender_name}` }
+      contents: { en: safeMessage || `New encrypted message from ${senderName}` },
+      ...(safeWebUrl ? { web_url: safeWebUrl } : {}),
     };
-    console.log("Payload:", payload);
+
     const response = await fetch('https://api.onesignal.com/notifications?c=push', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Basic ${ONESIGNAL_REST_API_KEY}`
+        'Authorization': `Key ${ONESIGNAL_REST_API_KEY}`
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      cache: "no-store",
     });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => null);
 
     if (!response.ok) {
       return NextResponse.json(
@@ -60,14 +73,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // Output exact OneSignal errors to Next.js console to understand exactly why it failed
-    if (data.errors) {
+    if (data?.errors) {
       console.warn("OneSignal Explicit Errors:", data.errors);
       return NextResponse.json({ 
         success: false, 
         message: 'Notification skipped with exact OneSignal API error.',
         onesignal_errors: data.errors 
-      }, { status: 200 }); // Keep 200 so UI doesn't crash, but expose errors to network tab
+      }, { status: 200 });
     }
 
     const invalidExternalIdsWarning =

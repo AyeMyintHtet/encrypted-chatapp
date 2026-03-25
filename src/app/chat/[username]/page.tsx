@@ -25,6 +25,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import ThemeToggle from "@/components/ThemeToggle";
 import type { ChatMessage, EncryptedChatMessage, PresenceStatus } from "@/lib/types";
+import { sendPushNotification } from "@/lib/onesignal/notify";
 
 /**
  * Lazy-loaded components — split into separate JS chunks.
@@ -389,16 +390,14 @@ export default function ChatPage() {
       setInputValue("");
       setSecureChannelError(null);
 
-      // Trigger standard push notification via our secure backend if peer isn't visually active
-      if (peerProfile?.id) {
-        fetch('/api/notify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            receiver_id: peerProfile.id,
-            sender_name: currentProfile.name,
-          })
-        }).catch(() => { /* Silent fail */ });
+      // Send push only when the peer is not currently active in this chat view.
+      if (peerProfile?.id && getPeerStatus() !== "active") {
+        const webUrl = `${window.location.origin}/chat/${currentProfile.username}`;
+        void sendPushNotification({
+          receiverId: peerProfile.id,
+          senderName: currentProfile.name,
+          webUrl,
+        });
       }
 
     } catch {

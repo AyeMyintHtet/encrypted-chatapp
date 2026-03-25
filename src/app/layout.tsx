@@ -4,7 +4,6 @@ import { ThemeProvider } from "@/context/ThemeContext";
 import QueryProvider from "@/context/QueryProvider";
 import { GlobalLoadingProvider } from "@/context/GlobalLoadingContext";
 import dynamic from "next/dynamic";
-import Script from "next/script";
 import OneSignalInitializer from "@/components/OneSignalInitializer";
 import "./globals.css";
 
