@@ -24,6 +24,7 @@ import {
 import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import ThemeToggle from "@/components/ThemeToggle";
+import UserAvatar from "@/components/UserAvatar";
 import type { ChatMessage, EncryptedChatMessage, PresenceStatus } from "@/lib/types";
 import { sendPushNotification } from "@/lib/onesignal/notify";
 
@@ -511,9 +512,13 @@ export default function ChatPage() {
 
             {/* Peer info with presence */}
             <div className="relative shrink-0">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-linear-to-br from-[#09637E] to-[#088395] rounded-full flex items-center justify-center text-white font-semibold text-xs sm:text-sm">
-                {peerProfile.name.charAt(0).toUpperCase()}
-              </div>
+              <UserAvatar
+                name={peerProfile.name}
+                avatarUrl={peerProfile.avatar_url}
+                size={32}
+                className="sm:w-10! sm:h-10!"
+                textClassName="text-xs sm:text-sm"
+              />
               <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border-2 ${statusColor}`} style={{ borderColor: isDark ? colors.backgroundSolid : colors.surface }} />
             </div>
             <div className="min-w-0">

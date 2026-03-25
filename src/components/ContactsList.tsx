@@ -10,6 +10,7 @@ import type { UserPresence, Profile } from "@/lib/types";
 import { Virtuoso } from "react-virtuoso";
 import { useAppStore } from "@/store/useAppStore";
 import { Trash2 } from "lucide-react";
+import UserAvatar from "@/components/UserAvatar";
 
 interface ContactsListProps {
   currentUserId: string;
@@ -178,9 +179,12 @@ export default function ContactsList({ currentUserId, presenceMap }: ContactsLis
                 >
                   <div className="flex items-center gap-3">
                     <div className="relative">
-                      <div className="w-10 h-10 bg-linear-to-br from-[#09637E] to-[#088395] rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                        {contact.name.charAt(0).toUpperCase()}
-                      </div>
+                      <UserAvatar
+                        name={contact.name}
+                        avatarUrl={contact.avatar_url}
+                        size={40}
+                        textClassName="text-sm"
+                      />
                       <div
                         className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 ${getStatusColor(contact.id)}`}
                         style={{ borderColor: colors.surfaceHover }}

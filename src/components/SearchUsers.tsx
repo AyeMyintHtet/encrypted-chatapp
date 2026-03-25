@@ -6,6 +6,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useAppStore } from "@/store/useAppStore";
+import UserAvatar from "@/components/UserAvatar";
 interface SearchUsersProps {
   currentUserId: string;
 }
@@ -147,9 +148,12 @@ export default function SearchUsers({ currentUserId }: SearchUsersProps) {
               style={{ background: colors.surfaceHover }}
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-linear-to-br from-[#09637E] to-[#088395] rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                  {user.name.charAt(0).toUpperCase()}
-                </div>
+                <UserAvatar
+                  name={user.name}
+                  avatarUrl={user.avatar_url}
+                  size={40}
+                  textClassName="text-sm"
+                />
                 <div>
                   <p className="font-medium text-sm" style={{ color: colors.textPrimary }}>{user.name}</p>
                   <p className="text-xs" style={{ color: colors.textSecondary }}>@{user.username}</p>

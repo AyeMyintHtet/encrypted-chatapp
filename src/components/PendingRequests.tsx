@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import { useAppStore } from "@/store/useAppStore";
+import UserAvatar from "@/components/UserAvatar";
 
 export default function PendingRequests() {
   const supabase = createClient();
@@ -101,9 +102,12 @@ export default function PendingRequests() {
               style={{ background: colors.surfaceHover }}
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                  {req.profile.name.charAt(0).toUpperCase()}
-                </div>
+                <UserAvatar
+                  name={req.profile.name}
+                  avatarUrl={req.profile.avatar_url}
+                  size={40}
+                  textClassName="text-sm"
+                />
                 <div>
                   <p className="font-medium text-sm" style={{ color: colors.textPrimary }}>{req.profile.name}</p>
                   <p className="text-xs" style={{ color: colors.textSecondary }}>@{req.profile.username}</p>

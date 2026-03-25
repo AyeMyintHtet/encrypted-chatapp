@@ -7,6 +7,8 @@ import { useCurrentProfile } from "@/hooks/useProfile";
 import { createClient } from "@/lib/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import ConfirmationModal from "@/components/ConfirmationModal";
+import UserAvatar from "@/components/UserAvatar";
+import dynamic from "next/dynamic";
 import {
   Camera,
   User as UserIcon,
@@ -21,6 +23,9 @@ import {
   Smartphone,
   Trash2,
 } from "lucide-react";
+
+// Lazy-load the avatar upload modal — only rendered when user clicks the profile picture
+const AvatarUploadModal = dynamic(() => import("@/components/AvatarUploadModal"));
 import { useUserSessions, useCurrentSessionId, useDeleteSession } from "@/hooks/useSessions";
 
 /**
@@ -178,13 +183,13 @@ const EditableSettingItem = memo(function EditableSettingItem({
 
 const parseUserAgent = (ua: string | null) => {
   if (!ua) return { browser: "Unknown Browser", os: "Unknown OS" };
-  
+
   let browser = "Unknown Browser";
   if (ua.includes("Firefox/")) browser = "Firefox";
   else if (ua.includes("Edg/")) browser = "Edge";
   else if (ua.includes("Chrome/") || ua.includes("CriOS/")) browser = "Chrome";
   else if (ua.includes("Safari/") && !ua.includes("Chrome")) browser = "Safari";
-  
+
   let os = "Unknown OS";
   if (ua.includes("iPhone") || ua.includes("iPad") || ua.includes("iPod")) os = "iOS";
   else if (ua.includes("Android")) os = "Android";
@@ -192,7 +197,7 @@ const parseUserAgent = (ua: string | null) => {
   else if (ua.includes("Windows NT 10.0")) os = "Windows 10/11";
   else if (ua.includes("Windows NT")) os = "Windows";
   else if (ua.includes("Linux")) os = "Linux";
-  
+
   return { browser, os };
 };
 
@@ -200,14 +205,14 @@ const formatTimeAgo = (dateString: string) => {
   if (!dateString) return "Unknown time";
   const date = new Date(dateString);
   const diffInMinutes = Math.floor((Date.now() - date.getTime()) / 60000);
-  
+
   if (diffInMinutes < 1) return "Just now";
   if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
   const diffInHours = Math.floor(diffInMinutes / 60);
   if (diffInHours < 24) return `${diffInHours}h ago`;
   const diffInDays = Math.floor(diffInHours / 24);
   if (diffInDays < 30) return `${diffInDays}d ago`;
-  
+
   return date.toLocaleDateString();
 };
 
@@ -222,6 +227,7 @@ export default function ProfileComponent({
   const deleteSession = useDeleteSession();
 
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
+  const [showAvatarUpload, setShowAvatarUpload] = useState(false);
 
   const { theme, toggleTheme } = useTheme();
   const colors = THEME_CONFIG[theme as ThemeType];
@@ -274,11 +280,23 @@ export default function ProfileComponent({
   return (
     <div className="w-full max-w-lg mx-auto flex flex-col gap-4 md:gap-6 pb-32 md:pb-6">
       <div className="flex flex-col items-center pt-4 md:pt-8 pb-2 md:pb-4">
-        <div className="relative group cursor-pointer mb-3 md:mb-5">
-          <div className="w-20 h-20 md:w-28 md:h-28 bg-linear-to-br from-[#09637E] to-[#088395] rounded-full flex items-center justify-center shadow-xl transition-transform duration-300 group-hover:scale-105">
-            <span className="text-white text-3xl md:text-5xl font-bold">
-              {profile.name ? profile.name.charAt(0).toUpperCase() : "?"}
-            </span>
+        <div
+          className="relative group cursor-pointer mb-3 md:mb-5"
+          onClick={() => setShowAvatarUpload(true)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === "Enter") setShowAvatarUpload(true); }}
+          aria-label="Change profile picture"
+        >
+          <div className="shadow-xl transition-transform duration-300 group-hover:scale-105 rounded-full">
+            <UserAvatar
+              name={profile.name}
+              avatarUrl={profile.avatar_url}
+              size={80}
+              className="md:w-28! md:h-28!"
+              textClassName="text-3xl md:text-5xl"
+              disableViewer
+            />
           </div>
           {/* Camera overlay indicator */}
           <div
@@ -484,6 +502,13 @@ export default function ProfileComponent({
         confirmText="Log Out"
         cancelText="Cancel"
         type="danger"
+      />
+
+      <AvatarUploadModal
+        isOpen={showAvatarUpload}
+        onClose={() => setShowAvatarUpload(false)}
+        userId={profile.id}
+        currentAvatarUrl={profile.avatar_url}
       />
     </div>
   );

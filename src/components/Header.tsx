@@ -2,6 +2,7 @@ import Image from "next/image";
 import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import ThemeToggle from "./ThemeToggle";
+import UserAvatar from "./UserAvatar";
 import { useRouter } from "next/navigation";
 
 export default function Header({ profile, setShowSignOutConfirm }: { profile?: any, setShowSignOutConfirm?: (value: boolean) => void }) {
@@ -43,9 +44,14 @@ export default function Header({ profile, setShowSignOutConfirm }: { profile?: a
                 onClick={() => router.push('/profile')}
               >
                 <div className="relative">
-                  <div className="w-6 h-6 sm:w-7 sm:h-7 bg-linear-to-br from-[#09637E] to-[#088395] rounded-full flex items-center justify-center text-white font-semibold text-[10px] sm:text-xs">
-                    {profile.name.charAt(0).toUpperCase()}
-                  </div>
+                  <UserAvatar
+                    name={profile.name}
+                    avatarUrl={profile.avatar_url}
+                    size={28}
+                    className="sm:w-7! sm:h-7!"
+                    textClassName="text-[10px] sm:text-xs"
+                    disableViewer
+                  />
                 </div>
                 <div className="">
                   <p className="text-sm font-medium" style={{ color: colors.textPrimary }}>{profile.name}</p>
