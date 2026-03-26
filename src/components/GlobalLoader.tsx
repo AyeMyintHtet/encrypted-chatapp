@@ -2,6 +2,7 @@
 
 import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
+import LoadingSpinner from "./LoadingSpinner";
 
 export default function GlobalLoader({ fullScreen = true }: { fullScreen?: boolean }) {
   const { theme } = useTheme();
@@ -14,14 +15,11 @@ export default function GlobalLoader({ fullScreen = true }: { fullScreen?: boole
       style={{ background: fullScreen ? colors.backgroundSolid : 'transparent' }}
     >
       <div className="relative flex items-center justify-center">
-        {/* Outer glowing ring */}
+        {/* Outer glowing ring using the standard component with exact size match */}
+        <LoadingSpinner size="xl" />
+        {/* Inner pulsing circle - keeping this for the unique branded look */}
         <div 
-          className="absolute w-16 h-16 rounded-full animate-spin border-4 border-solid border-t-transparent border-l-transparent border-r-transparent" 
-          style={{ borderColor: `${colors.accent}40`, borderTopColor: colors.accent, borderRightColor: colors.accent }} 
-        />
-        {/* Inner pulsing circle */}
-        <div 
-          className="w-10 h-10 rounded-full animate-pulse shadow-[0_0_15px_rgba(9,99,126,0.5)]" 
+          className="absolute w-10 h-10 rounded-full animate-pulse shadow-[0_0_15px_rgba(9,99,126,0.5)]" 
           style={{ background: `linear-gradient(135deg, ${colors.accent}, ${colors.accentSecondary})` }}
         />
       </div>

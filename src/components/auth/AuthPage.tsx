@@ -9,6 +9,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import ThemeToggle from "@/components/ThemeToggle";
 import ProjectName from "@/components/ProjectName";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 type AuthMode = "login" | "signup";
 
@@ -45,10 +46,7 @@ function SubmitButton({ className, idleText, pendingText }: SubmitButtonProps) {
     <button type="submit" disabled={pending} className={className}>
       {pending ? (
         <span className="flex items-center justify-center gap-2">
-          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
+          <LoadingSpinner size="sm" color="white" />
           {pendingText}
         </span>
       ) : (
