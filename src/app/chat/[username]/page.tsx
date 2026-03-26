@@ -50,6 +50,10 @@ type KeyAnnouncePayload = {
   public_key: JsonWebKey;
 };
 
+type ChatDeletePayload = {
+  sender_id: string;
+
+}
 /**
  * Chat page for a specific peer-to-peer conversation.
  * Uses Web Crypto (ECDH + AES-GCM) for end-to-end encryption of:
@@ -309,7 +313,9 @@ export default function ChatPage() {
         setSecureChannelError("Could not establish an encrypted channel.");
       }
     };
-
+    const deleteChat = async (senderID: string) => {
+      console.log('senderID', senderID)
+    };
     channel
       .on("broadcast", { event: "key_request" }, (payload) => {
         const request = payload.payload as KeyRequestPayload;
@@ -335,6 +341,12 @@ export default function ChatPage() {
           } catch {
             // Audio playback not supported — ignore
           }
+        }
+      })
+      .on("broadcast", { event: "chat_delete" }, (payload) => {
+        const chatDelete = payload.payload as ChatDeletePayload;
+        if (chatDelete.sender_id !== currentUserId) {
+          void deleteChat(chatDelete.sender_id);
         }
       })
       .subscribe((status) => {
@@ -669,7 +681,7 @@ export default function ChatPage() {
                 e.preventDefault();
               }}
               disabled={!inputValue.trim() || isComposerDisabled}
-              className="p-2.5 sm:p-3 bg-linear-to-r from-[#09637E] to-[#088395] hover:from-[#0a7490] hover:to-[#099aaa] text-white rounded-xl transition-all shadow-lg shadow-[#09637E]/25 hover:shadow-[#09637E]/40 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+              className={`p-2.5 sm:p-3 bg-linear-to-r from-[#09637E] to-[#088395] hover:from-[#0a7490] hover:to-[#099aaa] text-white rounded-xl transition-all shadow-lg shadow-[#09637E]/25 hover:shadow-[#09637E]/40 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer ${inputValue.trim().length > 0 ? "" : "w-0 !p-0 overflow-hidden m-0"}`}
             >
               <ArrowRightCircle />
             </button>

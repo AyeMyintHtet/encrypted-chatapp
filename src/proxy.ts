@@ -37,7 +37,14 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  // Refresh the session — IMPORTANT: do not remove this line
+  // Step 1: Refresh expired tokens — IMPORTANT: do not remove.
+  // getSession() checks the JWT expiry and triggers a refresh_token grant
+  // if the access token has expired. This updates the cookies via setAll()
+  // so the rest of the request pipeline sees fresh tokens.
+  await supabase.auth.getSession();
+
+  // Step 2: Validate the (now-refreshed) session with the Supabase Auth API.
+  // getUser() makes a network call to verify the access token is legitimate.
   const {
     data: { user },
   } = await supabase.auth.getUser();
