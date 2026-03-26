@@ -26,6 +26,8 @@ import {
 
 // Lazy-load the avatar upload modal — only rendered when user clicks the profile picture
 const AvatarUploadModal = dynamic(() => import("@/components/AvatarUploadModal"));
+// Lazy-load Legal Section so the large policy text strings don't bloat the primary profile bundle
+const LegalSection = dynamic(() => import("@/components/profile/LegalSection"), { ssr: true });
 import { useUserSessions, useCurrentSessionId, useDeleteSession } from "@/hooks/useSessions";
 import {
   useScheduleDeletion,
@@ -481,6 +483,8 @@ export default function ProfileComponent({
           })
         )}
       </div>
+
+      <LegalSection />
 
       {/* Delete Account — Danger Zone */}
       <div

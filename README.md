@@ -162,4 +162,4 @@ Make sure to add your environment variables in the Vercel project settings.
 
 ## 📄 License
 
-This project is open source and available under the [MIT License](LICENSE).
+This project is open source and available under the [MIT License](LICENSE). See the [Privacy Policy](PRIVACY_POLICY.md) and [Terms and Conditions](TERMS_AND_CONDITIONS.md) for details on how we handle your data and account.
