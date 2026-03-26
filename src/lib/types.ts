@@ -10,6 +10,10 @@ export interface Profile {
   username: string;
   avatar_url: string | null;
   created_at: string;
+  /** ISO timestamp when user requested account deletion (null = not scheduled) */
+  deletion_scheduled_at: string | null;
+  /** Grace period in days before permanent deletion (7, 30, or 90) */
+  deletion_period_days: number | null;
 }
 
 /** Connection row from the `connections` table */

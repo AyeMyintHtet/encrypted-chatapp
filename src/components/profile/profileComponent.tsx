@@ -27,6 +27,11 @@ import {
 // Lazy-load the avatar upload modal — only rendered when user clicks the profile picture
 const AvatarUploadModal = dynamic(() => import("@/components/AvatarUploadModal"));
 import { useUserSessions, useCurrentSessionId, useDeleteSession } from "@/hooks/useSessions";
+import {
+  useScheduleDeletion,
+  DELETION_PERIODS,
+  type DeletionPeriodDays,
+} from "@/hooks/useDeleteAccount";
 
 /**
  * Reusable, memoized component for inline editing of profile fields.
@@ -225,9 +230,13 @@ export default function ProfileComponent({
   const { data: sessions, isLoading: sessionsLoading, error: sessionsError } = useUserSessions();
   const { data: currentSessionId } = useCurrentSessionId();
   const deleteSession = useDeleteSession();
+  const scheduleDeletion = useScheduleDeletion();
 
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
   const [showAvatarUpload, setShowAvatarUpload] = useState(false);
+  // Delete account UI state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState<DeletionPeriodDays>(7);
 
   const { theme, toggleTheme } = useTheme();
   const colors = THEME_CONFIG[theme as ThemeType];
@@ -473,6 +482,57 @@ export default function ProfileComponent({
         )}
       </div>
 
+      {/* Delete Account — Danger Zone */}
+      <div
+        className="rounded-xl md:rounded-2xl overflow-hidden shadow-sm flex flex-col mt-1 md:mt-2"
+        style={{ background: colors.surface, border: `1px solid ${colors.border}` }}
+      >
+        <div
+          className="px-4 py-2 md:py-2.5 text-[11px] md:text-[12px] font-bold uppercase tracking-wider"
+          style={{ background: colors.surfaceHover, color: colors.textSecondary }}
+        >
+          Danger Zone
+        </div>
+
+        <div className="p-3 md:p-4 flex flex-col gap-3">
+          <p className="text-[12px] md:text-[13px] leading-relaxed" style={{ color: colors.textTertiary }}>
+            Choose a grace period. If you remain inactive for the selected duration, your account will be permanently deleted. Logging back in will automatically cancel the deletion.
+          </p>
+
+          {/* Period selector radio buttons */}
+          <div className="flex gap-2">
+            {DELETION_PERIODS.map(({ days, label }) => (
+              <button
+                key={days}
+                onClick={() => setSelectedPeriod(days)}
+                className="flex-1 py-2 px-2 md:px-3 rounded-lg text-[12px] md:text-[13px] font-semibold transition-all cursor-pointer"
+                style={{
+                  background: selectedPeriod === days ? "rgba(239, 68, 68, 0.12)" : colors.surfaceHover,
+                  color: selectedPeriod === days ? "#EF4444" : colors.textSecondary,
+                  border: `1.5px solid ${selectedPeriod === days ? "rgba(239, 68, 68, 0.35)" : colors.borderMuted}`,
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            disabled={scheduleDeletion.isPending}
+            className="w-full flex items-center justify-center gap-2 p-2.5 md:p-3 text-[14px] md:text-[15px] font-bold transition-all cursor-pointer rounded-xl hover:bg-red-500/10"
+            style={{ color: "#EF4444", background: "rgba(239, 68, 68, 0.05)" }}
+          >
+            {scheduleDeletion.isPending ? (
+              <Loader2 className="w-4.5 h-4.5 md:w-5 md:h-5 animate-spin" />
+            ) : (
+              <Trash2 className="w-4.5 h-4.5 md:w-5 md:h-5" />
+            )}
+            Delete Account
+          </button>
+        </div>
+      </div>
+
       {/* Sign Out Button */}
       <div
         className="rounded-xl md:rounded-2xl overflow-hidden shadow-sm flex flex-col mt-1 md:mt-2 mb-6"
@@ -488,6 +548,7 @@ export default function ProfileComponent({
         </button>
       </div>
 
+      {/* Session deletion confirmation modal */}
       <ConfirmationModal
         isOpen={!!sessionToDelete}
         onClose={() => setSessionToDelete(null)}
@@ -503,6 +564,20 @@ export default function ProfileComponent({
         cancelText="Cancel"
         type="danger"
       />
+
+      {/* Account deletion schedule confirmation modal */}
+      <ConfirmationModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={() => scheduleDeletion.mutate(selectedPeriod)}
+        title="Delete Your Account?"
+        message={`Your account will be permanently deleted after ${DELETION_PERIODS.find((p) => p.days === selectedPeriod)?.label ?? selectedPeriod + " days"} of inactivity. Logging back in will cancel the deletion.`}
+        confirmText="Delete Account"
+        cancelText="Cancel"
+        type="danger"
+      />
+
+
 
       <AvatarUploadModal
         isOpen={showAvatarUpload}
