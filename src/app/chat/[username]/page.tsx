@@ -23,7 +23,7 @@ import {
 } from "@/hooks/useProfile";
 import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
-import LoadingSpinner from "@/components/LoadingSpinner";
+import ChatPageSkeleton from "@/components/ChatPageSkeleton";
 import ThemeToggle from "@/components/ThemeToggle";
 import UserAvatar from "@/components/UserAvatar";
 import type { ChatMessage, EncryptedChatMessage, PresenceStatus } from "@/lib/types";
@@ -463,11 +463,9 @@ export default function ChatPage() {
   const colors = THEME_CONFIG[theme as ThemeType];
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-[#0A0A0A] overflow-hidden">
-        <LoadingSpinner size="lg" />
-      </div>
-    );
+    // Render the full-layout skeleton immediately so the user sees structure
+    // instead of a blank screen while profile + relationship queries resolve.
+    return <ChatPageSkeleton />;
   }
 
   if (isAccessDenied) {

@@ -174,7 +174,7 @@ export default function ContactsList({ currentUserId, presenceMap }: ContactsLis
                   onKeyDown={(e) => { if (e.key === 'Enter') router.push(`/chat/${contact.username}`) }}
                   role="button"
                   tabIndex={0}
-                  className="w-full flex items-center justify-between p-3 rounded-xl transition-all group cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#09637E]/50"
+                  className="w-full flex items-center justify-between p-3 rounded-xl transition-all group cursor-pointer focus:outline-none"
                   style={{ background: colors.surfaceHover }}
                 >
                   <div className="flex items-center gap-3">
