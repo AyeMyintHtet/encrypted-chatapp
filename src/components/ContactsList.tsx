@@ -31,14 +31,21 @@ export default function ContactsList({ currentUserId, presenceMap }: ContactsLis
   const notifyPeers = useCallback(
     (peerIds: string[]) => {
       peerIds.forEach((peerId) => {
-        const channel = supabase.channel(`sync:${peerId}`);
+        const channel = supabase.channel(`sync:${peerId}`, {
+          config: {
+            broadcast: { ack: true }, // Ensure reliable delivery to peers
+          },
+        });
         channel.subscribe(async (status) => {
           if (status === "SUBSCRIBED") {
             await channel.send({
               type: "broadcast",
               event: "refresh_connections",
             });
-            supabase.removeChannel(channel);
+            // Delay cleanup slightly to guarantee WebSocket message flush
+            setTimeout(() => {
+              supabase.removeChannel(channel);
+            }, 500);
           }
         });
       });

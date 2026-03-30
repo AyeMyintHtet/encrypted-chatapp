@@ -69,6 +69,11 @@ function getRefreshTargets(
           shouldRefreshRequests(newRow, currentUserId),
       };
     case "DELETE":
+      // If we don't have the full row payload, assume it could be our contact and force refresh.
+      // This is a safe fallback for postgres 'DELETE' events that only return the id.
+      if (!oldRow || !oldRow.status) {
+         return { contacts: true, requests: true };
+      }
       return {
         contacts: shouldRefreshContacts(oldRow, currentUserId),
         requests: shouldRefreshRequests(oldRow, currentUserId),
