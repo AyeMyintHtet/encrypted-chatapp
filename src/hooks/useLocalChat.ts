@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useOptimistic } from "react";
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useOptimistic,
+} from "react";
 import { decryptMessage, encryptMessage } from "@/lib/crypto/e2ee";
 import type { ChatMessage, EncryptedChatMessage } from "@/lib/types";
 import { useChatStore } from "@/store/useChatStore";
@@ -95,7 +101,9 @@ export function useLocalChat(
     async (message: ChatMessage): Promise<EncryptedChatMessage | null> => {
       if (!roomId) return null;
       const optimisticMessage = asStoreMessage(message, "sending");
-      addOptimisticMessage(optimisticMessage);
+      startTransition(() => {
+        addOptimisticMessage(optimisticMessage);
+      });
       upsertRoomMessage(roomId, optimisticMessage);
 
       if (!conversationKey) {
