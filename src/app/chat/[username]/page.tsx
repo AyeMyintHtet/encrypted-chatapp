@@ -91,7 +91,6 @@ export default function ChatPage() {
     peerProfile &&
     (canChatWithPeer === false || relationshipError)
   );
-
   // State
   const [inputValue, setInputValue] = useState("");
   const [showClearChatConfirm, setShowClearChatConfirm] = useState(false);
@@ -109,7 +108,7 @@ export default function ChatPage() {
   const privateKeyRef = useRef<CryptoKey | null>(null);
 
   // Initialize chat hook once both profiles are loaded
-  const { messages, addOutgoingMessage, addIncomingEncryptedMessage, clearMessages } = useLocalChat(
+  const { messages, addOutgoingMessage, addIncomingEncryptedMessage, clearMessages, deleteMessagesFromUser } = useLocalChat(
     currentUserId,
     peerUserId,
     conversationKey
@@ -314,7 +313,9 @@ export default function ChatPage() {
       }
     };
     const deleteChat = async (senderID: string) => {
-      console.log('senderID', senderID)
+      console.log('senderID', senderID);
+      const username = senderID === peerProfile?.id ? (peerProfile?.name || "User") : (currentProfile?.name || "You");
+      void deleteMessagesFromUser(senderID, username);
     };
     channel
       .on("broadcast", { event: "key_request" }, (payload) => {
@@ -370,7 +371,18 @@ export default function ChatPage() {
     publicKeyJwk,
     supabase,
   ]);
+  const sendDeleteChat = async () => {
+    if (!channelRef.current) return;
+    const payload: ChatDeletePayload = {
+      sender_id: currentUserId,
+    };
 
+    await channelRef.current.send({
+      type: "broadcast",
+      event: "chat_delete",
+      payload,
+    });
+  };
   /** Send an encrypted message via Broadcast and persist encrypted content locally */
   const handleSendMessage = async () => {
     if (
@@ -589,6 +601,8 @@ export default function ChatPage() {
             overscan={200}
             itemContent={(_, msg) => {
               const isOwn = msg.sender_id === currentProfile.id;
+              const isDeleted = msg.content.endsWith("was deleted his/her message");
+
               return (
                 <div className="max-w-4xl mx-auto px-3 sm:px-4 py-1.5 sm:py-2">
                   <div className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
@@ -596,7 +610,7 @@ export default function ChatPage() {
                       className={`max-w-[85%] sm:max-w-[70%] md:max-w-[60%] px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl ${isOwn
                         ? "bg-linear-to-r from-[#09637E] to-[#088395] text-white rounded-br-md shadow-sm"
                         : "rounded-bl-md shadow-xs"
-                        }`}
+                        } ${isDeleted ? "opacity-60 italic" : ""}`}
                       style={!isOwn ? { background: colors.surfaceHover, color: colors.textPrimary } : {}}
                     >
                       <p className="text-xs sm:text-sm whitespace-pre-wrap break-words leading-relaxed">{msg.content}</p>
@@ -690,7 +704,7 @@ export default function ChatPage() {
       <ConfirmationModal
         isOpen={showClearChatConfirm}
         onClose={() => setShowClearChatConfirm(false)}
-        onConfirm={clearMessages}
+        onConfirm={() => { clearMessages(); sendDeleteChat(); }}
         title="Clear Chat History"
         message={`Are you sure you want to clear your chat history with ${peerProfile.name}? This will only clear the messages locally on your device.`}
         confirmText="Clear Chat"

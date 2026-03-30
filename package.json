@@ -21,6 +21,7 @@
     "react-easy-crop": "^5.5.7",
     "react-onesignal": "^3.5.1",
     "react-virtuoso": "^4.18.3",
+    "zod": "^4.3.6",
     "zustand": "^5.0.12"
   },
   "devDependencies": {

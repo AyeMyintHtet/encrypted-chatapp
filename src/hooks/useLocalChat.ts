@@ -154,6 +154,34 @@ export function useLocalChat(
     setMessages([]);
     localStorage.removeItem(storageKey);
   }, [storageKey]);
+  /** Redact messages sent by a specific user instead of fully removing them */
+  const deleteMessagesFromUser = useCallback(async (userId: string, username: string) => {
+    if (!conversationKey) return;
+    const redactedText = `${username} was deleted his/her message`;
+    
+    setMessages((prev) => prev.map((msg) => 
+      msg.sender_id === userId ? { ...msg, content: redactedText } : msg
+    ));
+    
+    const nextEncrypted = await Promise.all(
+      encryptedRef.current.map(async (encMsg) => {
+        if (encMsg.sender_id === userId) {
+          const redactedMessage: ChatMessage = {
+            id: encMsg.id,
+            sender_id: encMsg.sender_id,
+            timestamp: encMsg.timestamp,
+            content: redactedText
+          };
+          // Re-encrypt the redacted message
+          return await encryptMessage(redactedMessage, conversationKey);
+        }
+        return encMsg;
+      })
+    );
+    
+    encryptedRef.current = nextEncrypted;
+    localStorage.setItem(storageKey, JSON.stringify(nextEncrypted));
+  }, [conversationKey, storageKey]);
 
-  return { messages, addOutgoingMessage, addIncomingEncryptedMessage, clearMessages };
+  return { messages, addOutgoingMessage, addIncomingEncryptedMessage, clearMessages, deleteMessagesFromUser };
 }

@@ -10,6 +10,8 @@ import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import ThemeToggle from "@/components/ThemeToggle";
 import ProjectName from "@/components/ProjectName";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { LegalModal } from "@/components/profile/LegalModal";
+import { z } from "zod";
 
 type AuthMode = "login" | "signup";
 
@@ -80,32 +82,37 @@ export default function AuthPage({ mode }: AuthPageProps) {
   const isSignup = mode === "signup";
 
   const [step, setStep] = useState(1);
-  const [identifier, setIdentifier] = useState("");
   const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
   const [emailStepError, setEmailStepError] = useState<string | null>(null);
+  const [activeModal, setActiveModal] = useState<"privacy" | "terms" | null>(null);
+
+  const emailStepSchema = z.string()
+    .trim()
+    .min(1, "Email is required")
+    .max(255, "Email length exceeds maximum allowed limit.")
+    .email("Please enter a valid email address")
+    .refine((val) => !MALICIOUS_PATTERN.test(val), {
+      message: "Invalid characters detected in email. Symbols like <, >, ', \", ; are not allowed.",
+    });
+
+  const loginSchema = z.object({
+    identifier: z.string({ message: "Please fill in all fields" })
+      .trim()
+      .min(1, "Please fill in all fields")
+      .max(255, "Input length exceeds maximum allowed limit.")
+      .refine((val) => !MALICIOUS_PATTERN.test(val), {
+        message: "Invalid characters detected in the input. Symbols like <, >, ', \", ; are not allowed.",
+      }),
+    password: z.string({ message: "Please fill in all fields" })
+      .trim()
+      .min(1, "Please fill in all fields")
+      .max(255, "Input length exceeds maximum allowed limit."),
+  });
 
   const handleEmailNext = () => {
-    const safeEmail = email.trim();
-    if (!safeEmail) {
-      setEmailStepError("Email is required");
-      return;
-    }
-
-    if (safeEmail.length > 255) {
-      setEmailStepError("Email length exceeds maximum allowed limit.");
-      return;
-    }
-
-    if (MALICIOUS_PATTERN.test(safeEmail)) {
-      setEmailStepError("Invalid characters detected in email. Symbols like <, >, ', \", ; are not allowed.");
-      return;
-    }
-
-    if (!EMAIL_REGEX.test(safeEmail)) {
-      setEmailStepError("Please enter a valid email address");
+    const parsed = emailStepSchema.safeParse(email);
+    if (!parsed.success) {
+      setEmailStepError(parsed.error.issues[0].message);
       return;
     }
 
@@ -114,27 +121,18 @@ export default function AuthPage({ mode }: AuthPageProps) {
   };
 
   const handleLogin = async (_prevState: AuthActionState, formData: FormData): Promise<AuthActionState> => {
-    const identifierValue = formData.get("identifier");
-    const passwordValue = formData.get("password");
+    const rawData = {
+      identifier: formData.get("identifier"),
+      password: formData.get("password"),
+    };
 
-    if (typeof identifierValue !== "string" || typeof passwordValue !== "string") {
-      return { error: "Please fill in all fields" };
+    const parsed = loginSchema.safeParse(rawData);
+
+    if (!parsed.success) {
+      return { error: parsed.error.issues[0].message };
     }
 
-    const safeIdentifier = identifierValue.trim();
-    const safePassword = passwordValue.trim();
-
-    if (!safeIdentifier || !safePassword) {
-      return { error: "Please fill in all fields" };
-    }
-
-    if (safeIdentifier.length > 255 || safePassword.length > 255) {
-      return { error: "Input length exceeds maximum allowed limit." };
-    }
-
-    if (MALICIOUS_PATTERN.test(safeIdentifier)) {
-      return { error: "Invalid characters detected in the input. Symbols like <, >, ', \", ; are not allowed." };
-    }
+    const { identifier: safeIdentifier, password: safePassword } = parsed.data;
 
     try {
       let loginEmail = safeIdentifier;
@@ -170,54 +168,53 @@ export default function AuthPage({ mode }: AuthPageProps) {
     }
   };
 
+  const signupSchema = z.object({
+    name: z.string({ message: "All fields are required" })
+      .trim()
+      .min(1, "All fields are required")
+      .max(100, "Input length exceeds maximum allowed limit.")
+      .refine((val) => !MALICIOUS_PATTERN.test(val), {
+        message: "Invalid characters detected in full name. Symbols like <, >, ', \", ; are not allowed.",
+      }),
+    username: z.string({ message: "All fields are required" })
+      .trim()
+      .min(1, "All fields are required")
+      .max(50, "Input length exceeds maximum allowed limit.")
+      .regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores"),
+    password: z.string({ message: "All fields are required" })
+      .trim()
+      .min(6, "Password must be at least 6 characters")
+      .max(255, "Input length exceeds maximum allowed limit."),
+    email: z.string({ message: "All fields are required" })
+      .trim()
+      .min(1, "All fields are required")
+      .max(255, "Input length exceeds maximum allowed limit.")
+      .refine((val) => !MALICIOUS_PATTERN.test(val), {
+        message: "Invalid characters detected in email. Symbols like <, >, ', \", ; are not allowed.",
+      })
+      .email("Please enter a valid email address"),
+    agreeTerms: z.literal("on", {
+      message: "You must agree to the Terms & Conditions and Privacy Policy.",
+    }),
+  });
+
   const handleSignup = async (_prevState: AuthActionState, formData: FormData): Promise<AuthActionState> => {
-    const nameValue = formData.get("name");
-    const usernameValue = formData.get("username");
-    const passwordValue = formData.get("password");
-    const emailValue = formData.get("email");
+    const rawData = {
+      name: formData.get("name"),
+      username: formData.get("username"),
+      password: formData.get("password"),
+      email: formData.get("email"),
+      agreeTerms: formData.get("agreeTerms"),
+    };
 
-    if (
-      typeof nameValue !== "string" ||
-      typeof usernameValue !== "string" ||
-      typeof passwordValue !== "string" ||
-      typeof emailValue !== "string"
-    ) {
-      return { error: "All fields are required" };
+    const parsed = signupSchema.safeParse(rawData);
+
+    if (!parsed.success) {
+      return { error: parsed.error.issues[0].message };
     }
 
-    const safeName = nameValue.trim();
-    const safeUsername = usernameValue.trim();
-    const safePassword = passwordValue.trim();
-    const safeEmail = emailValue.trim();
-
-    if (!safeName || !safeUsername || !safePassword || !safeEmail) {
-      return { error: "All fields are required" };
-    }
-
-    if (safeName.length > 100 || safeUsername.length > 50 || safePassword.length > 255 || safeEmail.length > 255) {
-      return { error: "Input length exceeds maximum allowed limit." };
-    }
-
-    if (MALICIOUS_PATTERN.test(safeEmail)) {
-      return { error: "Invalid characters detected in email. Symbols like <, >, ', \", ; are not allowed." };
-    }
-
-    if (!EMAIL_REGEX.test(safeEmail)) {
-      return { error: "Please enter a valid email address" };
-    }
-
-    if (MALICIOUS_PATTERN.test(safeName)) {
-      return { error: "Invalid characters detected in full name. Symbols like <, >, ', \", ; are not allowed." };
-    }
-
-    if (safePassword.length < 6) {
-      return { error: "Password must be at least 6 characters" };
-    }
-
-    if (!/^[a-zA-Z0-9_]+$/.test(safeUsername)) {
-      return { error: "Username can only contain letters, numbers, and underscores" };
-    }
-
+    const { name: safeName, username: originalUsername, password: safePassword, email: safeEmail } = parsed.data;
+    const safeUsername = originalUsername.toLowerCase();
     try {
       const { data: existingUser } = await supabase
         .from("profiles")
@@ -372,8 +369,6 @@ export default function AuthPage({ mode }: AuthPageProps) {
                     name="name"
                     type="text"
                     maxLength={100}
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
                     placeholder="John Doe"
                     className={INPUT_CLASS_NAME}
                     style={{ background: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }}
@@ -389,8 +384,6 @@ export default function AuthPage({ mode }: AuthPageProps) {
                     name="username"
                     type="text"
                     maxLength={50}
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
                     placeholder="johndoe"
                     className={INPUT_CLASS_NAME}
                     style={{ background: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }}
@@ -405,12 +398,26 @@ export default function AuthPage({ mode }: AuthPageProps) {
                     name="password"
                     type="password"
                     maxLength={255}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     className={INPUT_CLASS_NAME}
                     style={{ background: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }}
                   />
+                </div>
+
+                <div className="flex items-start gap-2 pt-1 pb-2">
+                  <input
+                    type="checkbox"
+                    id="agreeTerms"
+                    name="agreeTerms"
+                    className="mt-0.75 shrink-0 rounded border-gray-300 text-[#09637E] focus:ring-[#09637E] focus:ring-offset-background"
+                    style={{ accentColor: "#09637E" }}
+                  />
+                  <label htmlFor="agreeTerms" className="text-sm leading-snug" style={{ color: colors.textSecondary }}>
+                    I have read and agree to the{" "}
+                    <button type="button" onClick={() => setActiveModal("terms")} className="text-[#088395] hover:text-[#09637E] font-medium underline underline-offset-2 transition-colors cursor-pointer">Terms & Conditions</button>
+                    {" "}and{" "}
+                    <button type="button" onClick={() => setActiveModal("privacy")} className="text-[#088395] hover:text-[#09637E] font-medium underline underline-offset-2 transition-colors cursor-pointer">Privacy Policy</button>.
+                  </label>
                 </div>
 
                 <div className="flex gap-3">
@@ -440,8 +447,6 @@ export default function AuthPage({ mode }: AuthPageProps) {
                   name="identifier"
                   type="text"
                   maxLength={255}
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
                   placeholder="you@example.com or johndoe"
                   className={INPUT_CLASS_NAME}
                   style={{ background: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }}
@@ -457,8 +462,6 @@ export default function AuthPage({ mode }: AuthPageProps) {
                   name="password"
                   type="password"
                   maxLength={255}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   className={INPUT_CLASS_NAME}
                   style={{ background: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }}
@@ -480,6 +483,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
           </p>
         </div>
       </div>
+      <LegalModal activeModal={activeModal} setActiveModal={setActiveModal} />
     </div>
   );
 }

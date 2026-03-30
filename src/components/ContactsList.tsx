@@ -135,7 +135,7 @@ export default function ContactsList({ currentUserId, presenceMap }: ContactsLis
   }
 
   return (
-    <div className="backdrop-blur-sm rounded-2xl p-6" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+    <div className="backdrop-blur-sm rounded-2xl p-6 h-full" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
 
       <h2 className="text-lg font-semibold mb-4 flex items-center justify-between" style={{ color: colors.textPrimary }}>
         <div className="flex items-center gap-2">
