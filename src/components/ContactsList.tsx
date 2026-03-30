@@ -8,7 +8,7 @@ import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import type { UserPresence, Profile } from "@/lib/types";
 import { Virtuoso } from "react-virtuoso";
-import { useAppStore } from "@/store/useAppStore";
+import { useChatStore } from "@/store/useChatStore";
 import { Trash2 } from "lucide-react";
 import UserAvatar from "@/components/UserAvatar";
 
@@ -22,7 +22,8 @@ export default function ContactsList({ currentUserId, presenceMap }: ContactsLis
   const router = useRouter();
 
   // Local-first persistence
-  const { contacts, isContactsLoading, optimisticClearContacts, optimisticRemoveContact } = useAppStore();
+  const { contacts, isContactsLoading, optimisticClearContacts, optimisticRemoveContact } =
+    useChatStore();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [contactToDelete, setContactToDelete] = useState<Profile | null>(null);
   const [, startTransition] = useTransition();

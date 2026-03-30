@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
+import { useAuthStore } from "@/store/useAuthStore";
 
 type Theme = "dark" | "light";
 
@@ -14,28 +15,13 @@ const ThemeContext = createContext<ThemeContextValue>({
   toggleTheme: () => {},
 });
 
-const STORAGE_KEY = "chatapp-theme";
-
-/**
- * ThemeProvider — wraps the app and provides theme state.
- * Reads/writes theme preference to localStorage.
- * Default is "dark".
- */
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(() => {
-    // Read saved theme from localStorage on initial state creation (client-only)
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem(STORAGE_KEY) as Theme | null;
-      if (saved === "light" || saved === "dark") return saved;
-    }
-    return "dark";
-  });
+  const theme = useAuthStore((state) => state.theme_mode);
+  const setThemeMode = useAuthStore((state) => state.setThemeMode);
+
   const toggleTheme = () => {
-    setTheme((prev) => {
-      const next = prev === "dark" ? "light" : "dark";
-      localStorage.setItem(STORAGE_KEY, next);
-      return next;
-    });
+    const nextTheme: Theme = theme === "dark" ? "light" : "dark";
+    setThemeMode(nextTheme);
   };
 
   return (

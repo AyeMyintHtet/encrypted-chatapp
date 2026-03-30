@@ -58,7 +58,7 @@ type ChatDeletePayload = {
  * Chat page for a specific peer-to-peer conversation.
  * Uses Web Crypto (ECDH + AES-GCM) for end-to-end encryption of:
  * - Supabase Broadcast message payloads
- * - Local chat persistence in localStorage
+ * - Local chat persistence in IndexedDB
  */
 export default function ChatPage() {
   const params = useParams();
@@ -108,16 +108,46 @@ export default function ChatPage() {
   const privateKeyRef = useRef<CryptoKey | null>(null);
 
   // Initialize chat hook once both profiles are loaded
-  const { messages, addOutgoingMessage, addIncomingEncryptedMessage, clearMessages, deleteMessagesFromUser } = useLocalChat(
-    currentUserId,
-    peerUserId,
-    conversationKey
-  );
+  const {
+    hasHydrated: hasChatHydrated,
+    messages,
+    addOutgoingMessage,
+    addIncomingEncryptedMessage,
+    markOutgoingMessageSent,
+    markOutgoingMessageError,
+    clearMessages,
+    deleteMessagesFromUser,
+  } = useLocalChat(currentUserId, peerUserId, conversationKey);
   const addIncomingEncryptedMessageRef = useRef(addIncomingEncryptedMessage);
+  const deleteMessagesFromUserRef = useRef(deleteMessagesFromUser);
+  const profileNamesRef = useRef<{
+    currentId: string | null;
+    currentName: string;
+    peerId: string | null;
+    peerName: string;
+  }>({
+    currentId: null,
+    currentName: "You",
+    peerId: null,
+    peerName: "User",
+  });
 
   useEffect(() => {
     addIncomingEncryptedMessageRef.current = addIncomingEncryptedMessage;
   }, [addIncomingEncryptedMessage]);
+
+  useEffect(() => {
+    deleteMessagesFromUserRef.current = deleteMessagesFromUser;
+  }, [deleteMessagesFromUser]);
+
+  useEffect(() => {
+    profileNamesRef.current = {
+      currentId: currentProfile?.id ?? null,
+      currentName: currentProfile?.name ?? "You",
+      peerId: peerProfile?.id ?? null,
+      peerName: peerProfile?.name ?? "User",
+    };
+  }, [currentProfile?.id, currentProfile?.name, peerProfile?.id, peerProfile?.name]);
 
   // Initialize presence tracking — pass peerUsername so our status is "active"
   const { presenceMap } = usePresence(
@@ -313,9 +343,12 @@ export default function ChatPage() {
       }
     };
     const deleteChat = async (senderID: string) => {
-      console.log('senderID', senderID);
-      const username = senderID === peerProfile?.id ? (peerProfile?.name || "User") : (currentProfile?.name || "You");
-      void deleteMessagesFromUser(senderID, username);
+      const profileNames = profileNamesRef.current;
+      const username =
+        senderID === profileNames.peerId
+          ? profileNames.peerName
+          : profileNames.currentName;
+      void deleteMessagesFromUserRef.current(senderID, username);
     };
     channel
       .on("broadcast", { event: "key_request" }, (payload) => {
@@ -413,6 +446,7 @@ export default function ChatPage() {
         event: "message",
         payload: encryptedMessage,
       });
+      markOutgoingMessageSent(message.id);
       setInputValue("");
       setSecureChannelError(null);
 
@@ -427,6 +461,7 @@ export default function ChatPage() {
       }
 
     } catch {
+      markOutgoingMessageError(message.id);
       setSecureChannelError("Unable to encrypt and send this message.");
     }
   };
@@ -500,7 +535,8 @@ export default function ChatPage() {
   const statusLabel =
     peerStatus === "active" ? "Active" :
       peerStatus === "idle" ? "Idle" : "Offline";
-  const isComposerDisabled = isPeerOffline || !isSecureChannelReady;
+  const isComposerDisabled =
+    isPeerOffline || !isSecureChannelReady || !hasChatHydrated;
 
   return (
     <div
@@ -676,6 +712,8 @@ export default function ChatPage() {
               placeholder={
                 secureChannelError
                   ? "Secure channel unavailable..."
+                  : !hasChatHydrated
+                    ? "Loading local chat history..."
                   : !isSecureChannelReady
                     ? "Setting up end-to-end encryption..."
                     : isPeerOffline

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { LazyMotion, domMax, m, AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
 
@@ -10,12 +10,10 @@ import { useConnectionsSync } from "@/hooks/useConnectionsSync";
 import { useCurrentProfile } from "@/hooks/useProfile";
 import { useTheme } from "@/context/ThemeContext";
 import ContactsList from "@/components/ContactsList";
-import ThemeToggle from "@/components/ThemeToggle";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { useAppStore } from "@/store/useAppStore";
+import { useChatStore } from "@/store/useChatStore";
 import { Home, Search, User } from "lucide-react";
-import Image from "next/image";
 import ProfileComponent from "@/components/profile/profileComponent";
 import SignOutModal from "@/components/SignOut";
 import Header from "@/components/Header";
@@ -62,7 +60,7 @@ export default function DashboardPage() {
 
   // Fetch current user's profile using centralized React Query hook
   const { data: profile, isLoading: loading } = useCurrentProfile();
-  const contacts = useAppStore((state) => state.contacts);
+  const contacts = useChatStore((state) => state.contacts);
   const watchedUserIds = useMemo(() => contacts.map((contact) => contact.id), [contacts]);
 
   // Centralized, filtered realtime sync for contacts + pending requests.

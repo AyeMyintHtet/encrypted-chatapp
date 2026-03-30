@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import { useDebounce } from "@/hooks/useDebounce";
-import { useAppStore } from "@/store/useAppStore";
+import { useChatStore } from "@/store/useChatStore";
 import UserAvatar from "@/components/UserAvatar";
 interface SearchUsersProps {
   currentUserId: string;
@@ -19,7 +19,7 @@ export default function SearchUsers({ currentUserId }: SearchUsersProps) {
   const supabase = createClient();
   const [query, setQuery] = useState("");
 
-  const { searchResults: results, isSearching: searching, searchUsers } = useAppStore();
+  const { searchResults: results, isSearching: searching, searchUsers } = useChatStore();
   const [, startTransition] = useTransition();
 
   const [sentRequests, setSentRequests] = useState<Set<string>>(new Set());

@@ -6,7 +6,7 @@ import type {
   RealtimePostgresChangesPayload,
 } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
-import { useAppStore } from "@/store/useAppStore";
+import { useChatStore } from "@/store/useChatStore";
 
 const REFRESH_BATCH_MS = 180;
 
@@ -93,8 +93,9 @@ function getRefreshTargets(
  */
 export function useConnectionsSync(currentUserId: string) {
   const supabase = useMemo(() => createClient(), []);
-  const fetchContacts = useAppStore((state) => state.fetchContacts);
-  const fetchPendingRequests = useAppStore((state) => state.fetchPendingRequests);
+  const hasHydrated = useChatStore((state) => state.hasHydrated);
+  const fetchContacts = useChatStore((state) => state.fetchContacts);
+  const fetchPendingRequests = useChatStore((state) => state.fetchPendingRequests);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queuedRefreshRef = useRef<RefreshTargets>({
     contacts: false,
@@ -137,7 +138,7 @@ export function useConnectionsSync(currentUserId: string) {
   }, [currentUserId, flushQueuedRefresh]);
 
   useEffect(() => {
-    if (!currentUserId) return;
+    if (!currentUserId || !hasHydrated) return;
 
     refreshBothNow();
 
@@ -197,5 +198,5 @@ export function useConnectionsSync(currentUserId: string) {
         channel.unsubscribe();
       });
     };
-  }, [currentUserId, refreshBothNow, scheduleRefresh, supabase]);
+  }, [currentUserId, hasHydrated, refreshBothNow, scheduleRefresh, supabase]);
 }

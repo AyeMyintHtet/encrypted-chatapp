@@ -1,31 +1,53 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useOptimistic } from "react";
 import { decryptMessage, encryptMessage } from "@/lib/crypto/e2ee";
 import type { ChatMessage, EncryptedChatMessage } from "@/lib/types";
+import { useChatStore } from "@/store/useChatStore";
+import type { Message } from "@/store/types";
 
-function isEncryptedChatMessage(value: unknown): value is EncryptedChatMessage {
-  if (!value || typeof value !== "object") return false;
+const EMPTY_MESSAGES: Message[] = [];
 
-  const candidate = value as Partial<EncryptedChatMessage>;
-  return (
-    typeof candidate.id === "string" &&
-    typeof candidate.sender_id === "string" &&
-    typeof candidate.timestamp === "string" &&
-    typeof candidate.ciphertext === "string" &&
-    typeof candidate.iv === "string" &&
-    candidate.algorithm === "AES-GCM" &&
-    candidate.version === 1
-  );
+function asStoreMessage(
+  message: ChatMessage,
+  status: Message["status"] = "sent"
+): Message {
+  return {
+    id: message.id,
+    text: message.content,
+    senderId: message.sender_id,
+    timestamp: message.timestamp,
+    status,
+  };
+}
+
+function asChatMessage(message: Message): ChatMessage {
+  return {
+    id: message.id,
+    content: message.text,
+    sender_id: message.senderId,
+    timestamp: message.timestamp,
+  };
+}
+
+function mergeMessageById(messages: Message[], incoming: Message): Message[] {
+  const targetIndex = messages.findIndex((message) => message.id === incoming.id);
+  if (targetIndex < 0) {
+    return [...messages, incoming];
+  }
+
+  const next = [...messages];
+  next[targetIndex] = incoming;
+  return next;
 }
 
 /**
- * Custom hook to manage encrypted chat messages in localStorage.
+ * Custom hook to manage encrypted chat messages with IndexedDB persistence.
  *
- * - Generates a deterministic storage key from two user IDs (sorted alphabetically)
- *   so both sides of the conversation share the same key.
- * - Stores encrypted payloads at rest.
- * - Decrypts payloads into UI messages when a conversation key is available.
+ * - Generates a deterministic room key from two user IDs (sorted alphabetically).
+ * - Persists room history through `useChatStore` + IndexedDB.
+ * - Uses React 19 optimistic state to render outgoing messages immediately.
+ * - Decrypts incoming encrypted payloads into UI messages.
  *
  * @param userId1 - Current user's ID
  * @param userId2 - Peer user's ID
@@ -36,152 +58,129 @@ export function useLocalChat(
   userId2: string,
   conversationKey: CryptoKey | null
 ) {
-  // Sort IDs to create a consistent key regardless of who initiates
-  const storageKey = `chat_${[userId1, userId2].sort().join("_")}`;
+  const roomId = useMemo(() => {
+    if (!userId1 || !userId2) return "";
+    return `chat_${[userId1, userId2].sort().join("_")}`;
+  }, [userId1, userId2]);
 
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const encryptedRef = useRef<EncryptedChatMessage[]>([]);
+  const hasHydrated = useChatStore((state) => state.hasHydrated);
+  const persistedMessages = useChatStore(
+    (state) => state.chat_messages[roomId] ?? EMPTY_MESSAGES
+  );
+  const loadRoomMessages = useChatStore((state) => state.loadRoomMessages);
+  const upsertRoomMessage = useChatStore((state) => state.upsertRoomMessage);
+  const updateMessageStatus = useChatStore((state) => state.updateMessageStatus);
+  const clearRoomMessages = useChatStore((state) => state.clearRoomMessages);
+  const setRoomMessages = useChatStore((state) => state.setRoomMessages);
+  const getRoomMessages = useChatStore((state) => state.getRoomMessages);
 
-  const persistEncryptedMessages = useCallback(
-    (next: EncryptedChatMessage[]) => {
-      encryptedRef.current = next;
-      try {
-        localStorage.setItem(storageKey, JSON.stringify(next));
-      } catch {
-        console.warn("Encrypted local chat storage is full, using in-memory state.");
-      }
-    },
-    [storageKey]
+  useEffect(() => {
+    if (!hasHydrated || !roomId) return;
+    void loadRoomMessages(roomId);
+  }, [hasHydrated, roomId, loadRoomMessages]);
+
+  const [optimisticMessages, addOptimisticMessage] = useOptimistic(
+    persistedMessages,
+    (currentState, optimisticMessage: Message) =>
+      mergeMessageById(currentState, optimisticMessage)
   );
 
-  // Load and decrypt messages from localStorage when storage key or key changes
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadMessages = async () => {
-      try {
-        const stored = localStorage.getItem(storageKey);
-        const parsed = stored ? (JSON.parse(stored) as unknown) : [];
-        const encryptedMessages = Array.isArray(parsed)
-          ? parsed.filter(isEncryptedChatMessage)
-          : [];
-
-        if (stored && Array.isArray(parsed) && parsed.length !== encryptedMessages.length) {
-          localStorage.setItem(storageKey, JSON.stringify(encryptedMessages));
-        }
-
-        encryptedRef.current = encryptedMessages;
-
-        if (!conversationKey) {
-          if (isMounted) setMessages([]);
-          return;
-        }
-
-        const decryptedMessages = await Promise.all(
-          encryptedMessages.map(async (message) => {
-            try {
-              return await decryptMessage(message, conversationKey);
-            } catch {
-              return null;
-            }
-          })
-        );
-
-        if (isMounted) {
-          setMessages(
-            decryptedMessages.filter(
-              (message): message is ChatMessage => message !== null
-            )
-          );
-        }
-      } catch {
-        localStorage.removeItem(storageKey);
-        encryptedRef.current = [];
-        if (isMounted) setMessages([]);
-      }
-    };
-
-    void loadMessages();
-    return () => {
-      isMounted = false;
-    };
-  }, [conversationKey, storageKey]);
-
-  const mergeUnique = useCallback(
-    <T extends { id: string }>(list: T[], item: T): T[] => {
-      if (list.some((entry) => entry.id === item.id)) return list;
-      return [...list, item];
-    },
-    []
+  const messages = useMemo(
+    () => optimisticMessages.map(asChatMessage),
+    [optimisticMessages]
   );
 
   /** Encrypt and append an outgoing message */
   const addOutgoingMessage = useCallback(
     async (message: ChatMessage): Promise<EncryptedChatMessage | null> => {
-      if (!conversationKey) return null;
+      if (!roomId) return null;
+      const optimisticMessage = asStoreMessage(message, "sending");
+      addOptimisticMessage(optimisticMessage);
+      upsertRoomMessage(roomId, optimisticMessage);
 
-      const encryptedMessage = await encryptMessage(message, conversationKey);
-      const nextEncrypted = mergeUnique(encryptedRef.current, encryptedMessage);
-      persistEncryptedMessages(nextEncrypted);
-      setMessages((prev) => mergeUnique(prev, message));
-      return encryptedMessage;
+      if (!conversationKey) {
+        updateMessageStatus(roomId, message.id, "error");
+        return null;
+      }
+
+      try {
+        return await encryptMessage(message, conversationKey);
+      } catch {
+        updateMessageStatus(roomId, message.id, "error");
+        throw new Error("Failed to encrypt outgoing message");
+      }
     },
-    [conversationKey, mergeUnique, persistEncryptedMessages]
+    [
+      addOptimisticMessage,
+      conversationKey,
+      roomId,
+      updateMessageStatus,
+      upsertRoomMessage,
+    ]
   );
 
   /** Persist and decrypt an incoming encrypted message */
   const addIncomingEncryptedMessage = useCallback(
     async (encryptedMessage: EncryptedChatMessage): Promise<void> => {
-      const nextEncrypted = mergeUnique(encryptedRef.current, encryptedMessage);
-      if (nextEncrypted === encryptedRef.current) return;
-
-      persistEncryptedMessages(nextEncrypted);
-      if (!conversationKey) return;
+      if (!conversationKey || !roomId) return;
 
       try {
         const decrypted = await decryptMessage(encryptedMessage, conversationKey);
-        setMessages((prev) => mergeUnique(prev, decrypted));
+        upsertRoomMessage(roomId, asStoreMessage(decrypted, "sent"));
       } catch {
         console.warn("Failed to decrypt incoming message.");
       }
     },
-    [conversationKey, mergeUnique, persistEncryptedMessages]
+    [conversationKey, roomId, upsertRoomMessage]
+  );
+
+  /** Mark optimistic message as delivered */
+  const markOutgoingMessageSent = useCallback(
+    (messageId: string) => {
+      if (!roomId) return;
+      updateMessageStatus(roomId, messageId, "sent");
+    },
+    [roomId, updateMessageStatus]
+  );
+
+  /** Mark optimistic message as failed */
+  const markOutgoingMessageError = useCallback(
+    (messageId: string) => {
+      if (!roomId) return;
+      updateMessageStatus(roomId, messageId, "error");
+    },
+    [roomId, updateMessageStatus]
   );
 
   /** Clear chat history for this conversation */
   const clearMessages = useCallback(() => {
-    encryptedRef.current = [];
-    setMessages([]);
-    localStorage.removeItem(storageKey);
-  }, [storageKey]);
-  /** Redact messages sent by a specific user instead of fully removing them */
-  const deleteMessagesFromUser = useCallback(async (userId: string, username: string) => {
-    if (!conversationKey) return;
-    const redactedText = `${username} was deleted his/her message`;
-    
-    setMessages((prev) => prev.map((msg) => 
-      msg.sender_id === userId ? { ...msg, content: redactedText } : msg
-    ));
-    
-    const nextEncrypted = await Promise.all(
-      encryptedRef.current.map(async (encMsg) => {
-        if (encMsg.sender_id === userId) {
-          const redactedMessage: ChatMessage = {
-            id: encMsg.id,
-            sender_id: encMsg.sender_id,
-            timestamp: encMsg.timestamp,
-            content: redactedText
-          };
-          // Re-encrypt the redacted message
-          return await encryptMessage(redactedMessage, conversationKey);
-        }
-        return encMsg;
-      })
-    );
-    
-    encryptedRef.current = nextEncrypted;
-    localStorage.setItem(storageKey, JSON.stringify(nextEncrypted));
-  }, [conversationKey, storageKey]);
+    if (!roomId) return;
+    clearRoomMessages(roomId);
+  }, [clearRoomMessages, roomId]);
 
-  return { messages, addOutgoingMessage, addIncomingEncryptedMessage, clearMessages, deleteMessagesFromUser };
+  /** Redact messages sent by a specific user instead of fully removing them */
+  const deleteMessagesFromUser = useCallback(
+    async (userId: string, username: string) => {
+      if (!roomId) return;
+      const redactedText = `${username} was deleted his/her message`;
+      const nextMessages = getRoomMessages(roomId).map((message) =>
+        message.senderId === userId
+          ? { ...message, text: redactedText, status: "sent" as const }
+          : message
+      );
+      setRoomMessages(roomId, nextMessages);
+    },
+    [getRoomMessages, roomId, setRoomMessages]
+  );
+
+  return {
+    hasHydrated,
+    messages,
+    addOutgoingMessage,
+    addIncomingEncryptedMessage,
+    markOutgoingMessageSent,
+    markOutgoingMessageError,
+    clearMessages,
+    deleteMessagesFromUser,
+  };
 }

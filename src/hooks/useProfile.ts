@@ -4,6 +4,7 @@ import { hasAcceptedConnection } from "@/lib/chat-access";
 import { useRouter } from "next/navigation";
 import type { Profile } from "@/lib/types";
 import { signOutAndClearClientState } from "@/lib/auth/clientSignOut";
+import { useAuthStore } from "@/store/useAuthStore";
 
 /**
  * Shared hook to fetch the current authenticated user's profile.
@@ -13,6 +14,10 @@ export function useCurrentProfile() {
   const supabase = createClient();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const setUserProfileSnippet = useAuthStore(
+    (state) => state.setUserProfileSnippet
+  );
+
   return useQuery({
     queryKey: ["currentProfile"],
     queryFn: async () => {
@@ -41,6 +46,13 @@ export function useCurrentProfile() {
       if (error) {
         throw error;
       }
+
+      setUserProfileSnippet({
+        id: data.id,
+        name: data.name,
+        username: data.username,
+        avatarUrl: data.avatar_url,
+      });
 
       return data as Profile;
     },

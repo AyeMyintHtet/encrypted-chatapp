@@ -4,7 +4,7 @@ import { useEffect, useRef, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
-import { useAppStore } from "@/store/useAppStore";
+import { useChatStore } from "@/store/useChatStore";
 import UserAvatar from "@/components/UserAvatar";
 
 export default function PendingRequests() {
@@ -15,7 +15,7 @@ export default function PendingRequests() {
     isRequestsLoading,
     optimisticAcceptRequest,
     optimisticDeclineRequest,
-  } = useAppStore();
+  } = useChatStore();
 
   const [, startTransition] = useTransition();
   const prevCountRef = useRef<number>(0);

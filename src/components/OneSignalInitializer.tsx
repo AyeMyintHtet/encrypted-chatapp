@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import type { User } from "@supabase/supabase-js";
 import OneSignal from "react-onesignal";
 import { createClient } from "@/lib/supabase/client";
+import { useAuthStore } from "@/store/useAuthStore";
 import {
   ONESIGNAL_APP_ID,
   ONESIGNAL_SERVICE_WORKER_PATH,
@@ -40,6 +41,7 @@ export default function OneSignalInitializer() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
+      useAuthStore.getState().syncAuthFromSession(session);
       await syncAuthenticatedUser(session?.user ?? null);
     };
     const supabase = createClient();
@@ -81,6 +83,7 @@ export default function OneSignalInitializer() {
         const {
           data: { session },
         } = await supabase.auth.getSession();
+        useAuthStore.getState().syncAuthFromSession(session);
         await syncAuthenticatedUser(session?.user ?? null);
 
         OneSignal.User.PushSubscription.addEventListener(
@@ -91,6 +94,7 @@ export default function OneSignalInitializer() {
         const {
           data: { subscription },
         } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
+          useAuthStore.getState().syncAuthFromSession(currentSession);
           await syncAuthenticatedUser(currentSession?.user ?? null);
         });
         authSubscription = subscription;
