@@ -28,6 +28,8 @@ import ThemeToggle from "@/components/ThemeToggle";
 import UserAvatar from "@/components/UserAvatar";
 import type { ChatMessage, EncryptedChatMessage, PresenceStatus } from "@/lib/types";
 import { sendPushNotification } from "@/lib/onesignal/notify";
+import { insertPendingMessage } from "@/lib/supabase/messages";
+import { usePendingMessages } from "@/hooks/usePendingMessages";
 
 /**
  * Lazy-loaded components — split into separate JS chunks.
@@ -156,6 +158,9 @@ export default function ChatPage() {
     peerUsername,
     watchedPresenceUserIds
   );
+
+  // Fetch and decrypt any pending (offline) messages from Supabase on page load.
+  usePendingMessages(currentUserId);
 
   // Typing indicator — piggybacks on the existing Broadcast channel
   const { isPeerTyping, notifyTyping } = useTypingIndicator(
@@ -416,12 +421,17 @@ export default function ChatPage() {
       payload,
     });
   };
-  /** Send an encrypted message via Broadcast and persist encrypted content locally */
+  /** Deterministic room key for this conversation — matches useLocalChat */
+  const roomId = useMemo(() => {
+    if (!currentUserId || !peerUserId) return "";
+    return `chat_${[currentUserId, peerUserId].sort().join("_")}`;
+  }, [currentUserId, peerUserId]);
+
+  /** Send an encrypted message via Broadcast + persist to Supabase for offline delivery */
   const handleSendMessage = async () => {
     if (
       !inputValue.trim() ||
       !currentProfile ||
-      !channelRef.current ||
       !conversationKey
     ) {
       return;
@@ -441,11 +451,27 @@ export default function ChatPage() {
         return;
       }
 
-      await channelRef.current.send({
-        type: "broadcast",
-        event: "message",
-        payload: encryptedMessage,
-      });
+      // Always persist to Supabase so the peer can fetch it when they come online.
+      // This is the core of offline messaging — broadcast is fire-and-forget.
+      if (peerProfile?.id && roomId) {
+        void insertPendingMessage(
+          supabase,
+          roomId,
+          currentProfile.id,
+          peerProfile.id,
+          encryptedMessage
+        );
+      }
+
+      // Also broadcast in real-time for peers that are online right now
+      if (channelRef.current) {
+        await channelRef.current.send({
+          type: "broadcast",
+          event: "message",
+          payload: encryptedMessage,
+        });
+      }
+
       markOutgoingMessageSent(message.id);
       setInputValue("");
       setSecureChannelError(null);
@@ -535,8 +561,9 @@ export default function ChatPage() {
   const statusLabel =
     peerStatus === "active" ? "Active" :
       peerStatus === "idle" ? "Idle" : "Offline";
-  const isComposerDisabled =
-    isPeerOffline || !isSecureChannelReady || !hasChatHydrated;
+  // Composer is now enabled even when peer is offline — messages are stored
+  // server-side and delivered when the peer comes back online.
+  const isComposerDisabled = !isSecureChannelReady || !hasChatHydrated;
 
   return (
     <div
@@ -688,12 +715,12 @@ export default function ChatPage() {
               </span>
             </div>
           )}
-          {/* Offline banner — show when peer is not in this chat */}
+          {/* Offline info banner — peer is not in this chat but messages will be stored */}
           {isPeerOffline && (
             <div className="mb-2 sm:mb-3 flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: colors.surface, border: `1px solid ${colors.borderMuted}` }}>
               <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-gray-500 rounded-full" />
               <span className="text-[10px] sm:text-xs" style={{ color: colors.textSecondary }}>
-                {peerProfile.name} is offline — send is disabled until they reconnect.
+                {peerProfile.name} is offline — messages will be delivered when they reconnect.
               </span>
             </div>
           )}
@@ -717,7 +744,7 @@ export default function ChatPage() {
                   : !isSecureChannelReady
                     ? "Setting up end-to-end encryption..."
                     : isPeerOffline
-                      ? `${peerProfile.name} is offline...`
+                      ? `Message ${peerProfile.name} (will receive when online)...`
                       : "Type a message..."
               }
               readOnly={isComposerDisabled}

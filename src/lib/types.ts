@@ -50,6 +50,16 @@ export interface EncryptedChatMessage {
   version: 1;
 }
 
+/** A row from the `pending_messages` table — encrypted payload stored server-side for offline delivery */
+export interface PendingMessage {
+  id: string;
+  room_id: string;
+  sender_id: string;
+  receiver_id: string;
+  encrypted_payload: EncryptedChatMessage;
+  created_at: string;
+}
+
 /** Presence status for a user */
 export type PresenceStatus = "active" | "idle" | "offline";
 

@@ -7,6 +7,7 @@ import dynamic from "next/dynamic";
 
 import { usePresence } from "@/hooks/usePresence";
 import { useConnectionsSync } from "@/hooks/useConnectionsSync";
+import { usePendingMessages } from "@/hooks/usePendingMessages";
 import { useCurrentProfile } from "@/hooks/useProfile";
 import { useTheme } from "@/context/ThemeContext";
 import ContactsList from "@/components/ContactsList";
@@ -65,6 +66,10 @@ export default function DashboardPage() {
 
   // Centralized, filtered realtime sync for contacts + pending requests.
   useConnectionsSync(profile?.id ?? "");
+
+  // Fetch and decrypt any pending (offline) messages from Supabase on page load.
+  // Shows GlobalLoader while processing.
+  usePendingMessages(profile?.id ?? "");
 
   // Initialize presence tracking — no chatWith, so our status is "offline" here
   const { presenceMap } = usePresence(
