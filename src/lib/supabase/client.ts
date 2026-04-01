@@ -53,6 +53,11 @@ export function createClient(): SupabaseClient {
     realtime: {
       // Info-level logging so connection issues surface in DevTools console
       log_level: "info",
+      params: {
+        // Offload heartbeat to a Web Worker so background-tab timer throttling
+        // doesn't kill the WebSocket connection when the user switches tabs.
+        worker: true,
+      },
     },
     global: {
       fetch: (url, options) => {

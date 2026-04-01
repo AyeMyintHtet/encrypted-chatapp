@@ -6,6 +6,7 @@ import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { ArrowRightCircle, Users, Copy, Check, Menu, X, Link2, Trash2, ShieldAlert } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useCurrentProfile } from "@/hooks/useProfile";
+import { useRealtimeRecovery } from "@/hooks/useRealtimeRecovery";
 import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -41,6 +42,9 @@ export default function QuickChatPage() {
   const supabase = useMemo(() => createClient(), []);
 
   const { data: currentProfile, isLoading: profileLoading } = useCurrentProfile();
+
+  // Recover the Realtime WebSocket when the tab wakes from background/sleep
+  useRealtimeRecovery(supabase);
 
   const [messages, setMessages] = useState<QuickChatMessage[]>([]);
   const [participants, setParticipants] = useState<Record<string, QuickChatUser>>({});

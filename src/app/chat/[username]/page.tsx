@@ -15,6 +15,7 @@ import {
 } from "@/lib/crypto/e2ee";
 import { useLocalChat } from "@/hooks/useLocalChat";
 import { usePresence } from "@/hooks/usePresence";
+import { useRealtimeRecovery } from "@/hooks/useRealtimeRecovery";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 import {
   useCanChatWithPeer,
@@ -67,6 +68,9 @@ export default function ChatPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const peerUsername = params.username as string;
+
+  // Recover the Realtime WebSocket when the tab wakes from background/sleep
+  useRealtimeRecovery(supabase);
 
   // Fetch profiles globally via React Query
   const { data: currentProfile, isLoading: currentLoading } = useCurrentProfile();
