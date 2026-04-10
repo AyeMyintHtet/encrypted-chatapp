@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useTheme } from "@/context/ThemeContext";
 import { THEME_CONFIG, type ThemeType } from "@/constants/theme";
 import ConfirmationModal from "@/components/ConfirmationModal";
-import type { UserPresence, Profile } from "@/lib/types";
+import type { UserPresence, PublicProfile } from "@/lib/types";
 import { Virtuoso } from "react-virtuoso";
 import { useChatStore } from "@/store/useChatStore";
 import { Trash2 } from "lucide-react";
@@ -25,7 +25,7 @@ export default function ContactsList({ currentUserId, presenceMap }: ContactsLis
   const { contacts, isContactsLoading, optimisticClearContacts, optimisticRemoveContact } =
     useChatStore();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [contactToDelete, setContactToDelete] = useState<Profile | null>(null);
+  const [contactToDelete, setContactToDelete] = useState<PublicProfile | null>(null);
   const [, startTransition] = useTransition();
 
   /** Manually trigger peer's UI refetch via broadcast since Postgres DELETE drops WAL row payload */
