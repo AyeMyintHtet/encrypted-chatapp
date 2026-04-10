@@ -117,6 +117,7 @@ export default function SearchUsers({ currentUserId }: SearchUsersProps) {
           placeholder="Search by username..."
           className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#09637E]/50 focus:border-[#09637E]/50 transition-all"
           style={{ background: colors.inputBg, border: `1px solid ${colors.border}`, color: colors.textPrimary }}
+          onBlur={() => setQuery("")}
         />
         {searching && (
           <div className="absolute right-4 top-1/2 -translate-y-1/2">

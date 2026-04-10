@@ -9,6 +9,28 @@ export interface Session {
   ip: string;
 }
 
+/**
+ * Deduplicate sessions by (user_agent + ip), keeping only the most recent one.
+ * Supabase creates a new session row on every sign-in, so the same device
+ * can appear multiple times. We coalesce them into a single entry per device.
+ */
+function deduplicateSessions(sessions: Session[]): Session[] {
+  const sessionMap = new Map<string, Session>();
+
+  for (const session of sessions) {
+    // Composite key — same browser on the same network = same "device"
+    const key = `${session.user_agent}::${session.ip}`;
+    const existing = sessionMap.get(key);
+
+    // Keep the session with the most recent updated_at timestamp
+    if (!existing || new Date(session.updated_at) > new Date(existing.updated_at)) {
+      sessionMap.set(key, session);
+    }
+  }
+
+  return Array.from(sessionMap.values());
+}
+
 export function useUserSessions() {
   const supabase = createClient();
 
@@ -19,7 +41,7 @@ export function useUserSessions() {
       if (error) {
         throw error;
       }
-      return data as Session[];
+      return deduplicateSessions(data as Session[]);
     },
   });
 }

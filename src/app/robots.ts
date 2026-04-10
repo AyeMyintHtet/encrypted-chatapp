@@ -19,6 +19,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       disallow: ["/api/", "/dashboard/", "/chat/"],
     },
-    sitemap: "https://chatapp-encrypted.vercel.app/sitemap.xml",
+    sitemap: "https://cqgram.vercel.app/sitemap.xml",
   };
 }

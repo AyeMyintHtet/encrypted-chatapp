@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { hasAcceptedConnection } from "@/lib/chat-access";
 import { useRouter } from "next/navigation";
-import type { Profile } from "@/lib/types";
+import type { Profile, PublicProfile } from "@/lib/types";
 import { signOutAndClearClientState } from "@/lib/auth/clientSignOut";
 import { useAuthStore } from "@/store/useAuthStore";
 
@@ -72,9 +72,10 @@ export function usePeerProfile(username: string) {
     queryFn: async () => {
       if (!username) throw new Error("No username provided");
 
+      // Only fetch public-facing columns — no email, deletion, or created_at
       const { data, error } = await supabase
         .from("profiles")
-        .select("*")
+        .select("id, name, username, avatar_url")
         .eq("username", username)
         .single();
 
@@ -88,7 +89,7 @@ export function usePeerProfile(username: string) {
         throw error;
       }
 
-      return data as Profile;
+      return data as PublicProfile;
     },
     enabled: !!username, // Only run the query if a username is provided
   });

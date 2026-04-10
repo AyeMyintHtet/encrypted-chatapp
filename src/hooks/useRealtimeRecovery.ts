@@ -3,18 +3,24 @@
 import { useEffect, useRef } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+// A minimal typed interface for internal RealtimeClient properties.
+// Avoids `any` while giving us access to the underlying socket logic.
+interface RealtimeClientMinimal {
+  conn?: WebSocket | null;
+  connect: () => void;
+  disconnect: () => void;
+}
+
+const DEBUG = process.env.NODE_ENV !== "production";
+
 /**
  * Recovers Supabase Realtime connections after the browser tab wakes up.
  *
- * **Why this is needed:**
- *   Even with `worker: true`, deep OS sleep or network changes can still
- *   disconnect the WebSocket. When the user returns to the tab we need to:
- *     1. Check if the underlying socket is still alive.
- *     2. Force a reconnect if it isn't.
- *
- * This hook listens for the `visibilitychange` event and, when the tab
- * becomes visible again, inspects `client.realtime` to decide whether
- * a reconnect is necessary.
+ * Expected behavior:
+ * - tab hidden → visible with open socket: verify socket state, do nothing if connected.
+ * - visible with closed socket: forces a disconnect/reconnect cycle safely.
+ * - repeated visibility events: throttled by a short cooldown to avoid connect bursts.
+ * - offline/online transitions: checks navigator.onLine and defers reconnect if offline.
  *
  * @param supabase  The singleton Supabase browser client
  * @param enabled   Pass `false` to disable (e.g. while profiles are loading)
@@ -25,32 +31,44 @@ export function useRealtimeRecovery(
 ): void {
   // Track connectivity so we only log/reconnect once per wake cycle
   const wasDisconnectedRef = useRef(false);
+  const lastActiveRef = useRef<number>(0);
 
   useEffect(() => {
-    if (!enabled) return;
+    // Defensive SSR check
+    if (typeof document === "undefined" || !enabled) return;
 
     const handleVisibilityChange = () => {
       if (document.visibilityState !== "visible") return;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rt = supabase.realtime as any;
+      // Throttle visible event handling to prevent rapid reconnect bursts
+      const now = Date.now();
+      if (now - lastActiveRef.current < 2000) return;
+      lastActiveRef.current = now;
 
-      // `rt.conn` is the underlying WebSocket instance managed by RealtimeClient.
-      // readyState: 0 = CONNECTING, 1 = OPEN, 2 = CLOSING, 3 = CLOSED
-      const socket: WebSocket | null | undefined = rt.conn;
+      // Defer reconnect if device is completely offline
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        return;
+      }
+
+      const rt = supabase.realtime as unknown as RealtimeClientMinimal;
+      const socket = rt.conn;
+
       const isAlive = socket?.readyState === WebSocket.OPEN;
+      const isConnecting = socket?.readyState === WebSocket.CONNECTING;
 
-      if (!isAlive) {
+      if (!isAlive && !isConnecting) {
         // Prevent repeated reconnect attempts during a single wake cycle
         if (!wasDisconnectedRef.current) {
           wasDisconnectedRef.current = true;
-          console.info(
-            "[RealtimeRecovery] Tab resumed — WebSocket is dead, forcing reconnect."
-          );
+          if (DEBUG) {
+            console.info(
+              "[RealtimeRecovery] Tab resumed — WebSocket disconnected, forcing reconnect."
+            );
+          }
         }
 
         // `disconnect()` cleans up the old socket; `connect()` opens a fresh one.
-        // All existing channel subscriptions are automatically re-joined by RealtimeClient.
+        // All existing channel subscriptions are a utomatically re-joined by RealtimeClient.
         try {
           rt.disconnect();
         } catch {
@@ -58,11 +76,13 @@ export function useRealtimeRecovery(
         }
         rt.connect();
       } else {
-        // Socket survived sleep — nothing to do
+        // Socket survived sleep or is currently connecting
         if (wasDisconnectedRef.current) {
-          console.info(
-            "[RealtimeRecovery] Tab resumed — WebSocket is still alive."
-          );
+          if (DEBUG) {
+            console.info(
+              "[RealtimeRecovery] Tab resumed — WebSocket is still alive or connecting."
+            );
+          }
         }
         wasDisconnectedRef.current = false;
       }

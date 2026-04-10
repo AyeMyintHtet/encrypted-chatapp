@@ -1,4 +1,4 @@
-import type { Profile } from "@/lib/types";
+import type { PublicProfile } from "@/lib/types";
 
 export type MessageStatus = "sending" | "sent" | "error";
 
@@ -35,4 +35,4 @@ export interface RoomHistoryEntry {
 }
 
 export type RoomHistory = Record<string, RoomHistoryEntry>;
-export type ContactsByUser = Record<string, Profile[]>;
+export type ContactsByUser = Record<string, PublicProfile[]>;

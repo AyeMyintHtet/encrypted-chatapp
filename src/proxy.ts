@@ -54,7 +54,10 @@ export async function proxy(request: NextRequest) {
   // Define route groups
   const isAuthPage = pathname === "/login" || pathname === "/signup";
   const isProtectedRoute =
-    pathname.startsWith("/dashboard") || pathname.startsWith("/chat");
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/chat") ||
+    pathname.startsWith("/profile") ||
+    pathname.startsWith("/quick-chat");
   const chatUsername = getChatUsernameFromPathname(pathname);
 
   // Redirect unauthenticated users trying to access protected routes

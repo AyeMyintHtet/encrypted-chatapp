@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { createClient } from "@/lib/supabase/client";
-import type { Profile } from "@/lib/types";
+import type { PublicProfile } from "@/lib/types";
 import type { ContactsByUser, Message, RoomHistory } from "@/store/types";
 import {
   clearChatIndexedDbData,
@@ -14,15 +14,15 @@ import {
 interface PendingRequest {
   id: string;
   requester_id: string;
-  profile: Profile;
+  profile: PublicProfile;
 }
 
 interface ChatStoreState {
-  contacts: Profile[];
+  contacts: PublicProfile[];
   contact_list: ContactsByUser;
   activeContactsUserId: string | null;
   pendingRequests: PendingRequest[];
-  searchResults: Profile[];
+  searchResults: PublicProfile[];
   chat_messages: Record<string, Message[]>;
   room_history: RoomHistory;
   hasHydrated: boolean;
@@ -31,9 +31,9 @@ interface ChatStoreState {
   isRequestsLoading: boolean;
   isSearching: boolean;
 
-  setContacts: (currentUserId: string, contacts: Profile[]) => void;
+  setContacts: (currentUserId: string, contacts: PublicProfile[]) => void;
   setPendingRequests: (requests: PendingRequest[]) => void;
-  setSearchResults: (results: Profile[]) => void;
+  setSearchResults: (results: PublicProfile[]) => void;
   setRoomMessages: (roomId: string, messages: Message[]) => void;
   loadRoomMessages: (roomId: string) => Promise<Message[]>;
   upsertRoomMessage: (roomId: string, message: Message) => void;
@@ -66,7 +66,7 @@ const abortControllers: Record<string, AbortController> = {};
 function upsertContactsCache(
   contactList: ContactsByUser,
   currentUserId: string,
-  contacts: Profile[]
+  contacts: PublicProfile[]
 ): ContactsByUser {
   return {
     ...contactList,
@@ -127,11 +127,11 @@ function upsertRoomHistory(
 }
 
 const initialState = {
-  contacts: [] as Profile[],
+  contacts: [] as PublicProfile[],
   contact_list: {} as ContactsByUser,
   activeContactsUserId: null as string | null,
   pendingRequests: [] as PendingRequest[],
-  searchResults: [] as Profile[],
+  searchResults: [] as PublicProfile[],
   chat_messages: {} as Record<string, Message[]>,
   room_history: {} as RoomHistory,
   hasHydrated: false,
@@ -346,9 +346,10 @@ export const useChatStore = create<ChatStoreState>()(
               : connection.requester_id
           );
 
+          // Only fetch public-facing columns to minimise PII on the wire
           const { data: profiles, error: profileError } = await supabase
             .from("profiles")
-            .select("*")
+            .select("id, name, username, avatar_url")
             .in("id", otherIds)
             .abortSignal(controller.signal);
 
@@ -359,7 +360,7 @@ export const useChatStore = create<ChatStoreState>()(
             return;
           }
 
-          const nextContacts = (profiles ?? []) as Profile[];
+          const nextContacts = (profiles ?? []) as PublicProfile[];
           if (!controller.signal.aborted) {
             set((state) => ({
               contacts: nextContacts,
@@ -409,18 +410,19 @@ export const useChatStore = create<ChatStoreState>()(
           }
 
           const requesterIds = connectionRows.map((connection) => connection.requester_id);
+          // Only fetch public-facing columns to minimise PII on the wire
           const { data: profiles } = await supabase
             .from("profiles")
-            .select("*")
+            .select("id, name, username, avatar_url")
             .in("id", requesterIds)
             .abortSignal(controller.signal);
 
-          const profileRows = (profiles ?? []) as Profile[];
+          const profileRows = (profiles ?? []) as PublicProfile[];
           const merged = connectionRows
             .map((connection) => ({
               ...connection,
               profile: profileRows.find((profile) => profile.id === connection.requester_id) as
-                | Profile
+                | PublicProfile
                 | undefined,
             }))
             .filter(
@@ -453,9 +455,10 @@ export const useChatStore = create<ChatStoreState>()(
 
         try {
           const supabase = createClient();
+          // Only fetch public-facing columns to minimise PII on the wire
           const { data, error } = await supabase
             .from("profiles")
-            .select("*")
+            .select("id, name, username, avatar_url")
             .ilike("username", `%${query.trim()}%`)
             .neq("id", currentUserId)
             .limit(10)
@@ -469,7 +472,27 @@ export const useChatStore = create<ChatStoreState>()(
           }
 
           if (!controller.signal.aborted) {
-            set({ searchResults: (data ?? []) as Profile[], isSearching: false });
+            // Fetch existing connections (accepted + pending) to exclude from results
+            const { data: existingConnections } = await supabase
+              .from("connections")
+              .select("requester_id, receiver_id")
+              .or(`requester_id.eq.${currentUserId},receiver_id.eq.${currentUserId}`)
+              .in("status", ["accepted", "pending"])
+              .abortSignal(controller.signal);
+
+            // Build a set of user IDs that already have a relationship with current user
+            const connectedIds = new Set(
+              (existingConnections ?? []).map((c: { requester_id: string; receiver_id: string }) =>
+                c.requester_id === currentUserId ? c.receiver_id : c.requester_id
+              )
+            );
+
+            // Only show users with no existing connection or pending request
+            const filtered = (data ?? []).filter(
+              (user: { id: string }) => !connectedIds.has(user.id)
+            );
+
+            set({ searchResults: filtered as PublicProfile[], isSearching: false });
           }
         } catch (error: unknown) {
           if (!(error instanceof DOMException && error.name === "AbortError")) {

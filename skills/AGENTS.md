@@ -1,4 +1,4 @@
-When you create a ui, make sure it is responsive and accessible for current mobile and desktop users. for the colors use the theme.ts file to get the colors. For the icons used lucide react.And make sure icons, button, input box must have the "cursor-pointer" css.
+When you create a ui, make sure it is responsive and accessible for current mobile and desktop users. for the colors use the theme.ts file to get the colors. For the icons use lucide react.And make sure icons, button, input box must have the "cursor-pointer" css.
 
 For the Api Fetching or Supabase Fetching follow DRY principle. Don't call many apis if you can get the data from the previous api call or satify with just one api call.
 

@@ -16,6 +16,12 @@ export interface Profile {
   deletion_period_days: number | null;
 }
 
+/**
+ * A narrowed Profile containing only public-facing fields.
+ * Used for contact lists, search results, and peer profiles to reduce PII surface.
+ */
+export type PublicProfile = Pick<Profile, "id" | "name" | "username" | "avatar_url">;
+
 /** Connection row from the `connections` table */
 export interface Connection {
   id: string;
