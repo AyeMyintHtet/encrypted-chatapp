@@ -38,6 +38,7 @@ describe("E2EE identity key storage", () => {
       identityStorageKey,
       identityStore
     );
+    if (!stored) throw new Error("Migrated identity was not persisted.");
     expect(stored.privateKey.extractable).toBe(false);
     expect(stored.publicKeyJwk).toEqual(legacy.publicKeyJwk);
     await expect(getOrCreateIdentityKeyPair("user-1")).resolves.toMatchObject({
