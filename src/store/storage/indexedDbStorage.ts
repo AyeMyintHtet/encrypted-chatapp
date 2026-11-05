@@ -71,6 +71,12 @@ function base64ToBytes(base64Value: string): Uint8Array {
   return bytes;
 }
 
+function normalizeToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy.buffer;
+}
+
 async function getOrCreateMessageEncryptionKey(): Promise<CryptoKey> {
   const storedKey = await get<unknown>(MESSAGE_KEY_NAME, chatKeyValueStore);
   if (storedKey !== undefined) {
@@ -115,9 +121,9 @@ async function encryptMessages(messages: Message[]): Promise<EncryptedMessages> 
 async function decryptMessages(value: EncryptedMessages): Promise<Message[]> {
   const key = await getOrCreateMessageEncryptionKey();
   const plaintext = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: base64ToBytes(value.iv) },
+    { name: "AES-GCM", iv: normalizeToArrayBuffer(base64ToBytes(value.iv)) },
     key,
-    base64ToBytes(value.ciphertext)
+    normalizeToArrayBuffer(base64ToBytes(value.ciphertext))
   );
   const parsed: unknown = JSON.parse(new TextDecoder().decode(plaintext));
   return Array.isArray(parsed) ? parsed.filter(isMessage) : [];
@@ -175,3 +181,4 @@ export async function clearChatIndexedDbData(): Promise<void> {
   if (!isBrowser()) return;
   await clear(chatKeyValueStore);
 }
+
