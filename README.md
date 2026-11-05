@@ -19,7 +19,7 @@ A real-time chat application built with **Next.js 16**, **Supabase**, and **Tail
 | **Offline UI** | Message input disabled when peer is offline |
 | **Chat Management** | Clear all chat history per conversation |
 | **Contact Management** | Clear all contacts (reflected in real-time for both users) |
-| **Local Persistence** | Encrypted message payloads stored in `localStorage` |
+| **Local Persistence** | Message history is encrypted with AES-GCM before storage in IndexedDB |
 
 ---
 
@@ -51,7 +51,7 @@ src/
 │   ├── PendingRequests.tsx       # Incoming friend requests
 │   └── SearchUsers.tsx           # User search & connect
 ├── hooks/
-│   ├── useLocalChat.ts           # encrypted localStorage chat persistence
+│   ├── useLocalChat.ts           # chat state and encrypted local persistence
 │   └── usePresence.ts            # Supabase Presence hook
 ├── lib/
 │   ├── supabase/
@@ -137,12 +137,14 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 > When a peer is offline, the message input is disabled with a banner notification.
 
-### Encryption Model
-- Messages are encrypted in the browser before being sent.
-- Supabase Broadcast transports ciphertext, not plaintext message content.
-- Stored chat payloads in `localStorage` are encrypted (AES-GCM).
-- Key exchange uses ECDH public keys exchanged between peers over the chat channel.
-- Metadata (sender id, timestamp, presence, connection graph) is not hidden.
+### Encryption and Local Storage
+- Messages are encrypted in the browser with AES-GCM before they are sent over Supabase Broadcast or stored in IndexedDB.
+- Local message history uses a non-extractable AES-GCM key persisted as a `CryptoKey` in IndexedDB. This protects against casual inspection of message records, but the key and ciphertext are in the same browser profile. It does not protect against malicious same-origin JavaScript, XSS, browser extensions with page access, or a compromised browser profile.
+- ECDH identity private keys are stored as non-extractable `CryptoKey` objects in a separate IndexedDB database. Existing private-key JWKs in `localStorage` are migrated when the user next opens a chat, then removed after the IndexedDB write succeeds.
+- Clearing browser data or moving to another device removes the locally stored identity key; the app currently has no identity-key recovery or transfer flow.
+- Peer public keys are announced over Supabase Realtime without signatures or another authenticated binding to the peer's account. A peer key announcement can be replaced, so the current exchange does not prevent impersonation or a man-in-the-middle attack.
+- The ECDH identity key is static and there is no ratchet or forward secrecy. If a private identity key is later compromised, previously captured messages encrypted with the corresponding conversation key may be exposed.
+- Metadata such as sender ID, timestamps, presence, and connection relationships is not hidden.
 
 ### Clear Data
 - **Clear All Chat** — Button appears in the chat header when messages exist
