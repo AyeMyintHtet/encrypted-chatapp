@@ -1,12 +1,39 @@
 import type { ChatMessage, EncryptedChatMessage } from "@/lib/types";
+import { createStore, get, set } from "idb-keyval";
 
 const IDENTITY_KEY_PREFIX = "cqgram:e2ee:identity";
 const PEER_KEY_PREFIX = "cqgram:e2ee:peer-key";
 
 type StoredIdentity = {
+  privateKey: CryptoKey;
+  publicKeyJwk: JsonWebKey;
+};
+
+type LegacyStoredIdentity = {
   privateKeyJwk: JsonWebKey;
   publicKeyJwk: JsonWebKey;
 };
+
+const identityKeyStore = createStore("cqgram-e2ee-db", "cqgram-e2ee-kv");
+
+function getIdentityRecordKey(userId: string): string {
+  return getIdentityStorageKey(userId);
+}
+
+function isStoredIdentity(value: unknown): value is StoredIdentity {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<StoredIdentity>;
+  const privateKey = candidate.privateKey;
+  return Boolean(
+    privateKey &&
+      typeof privateKey === "object" &&
+      "algorithm" in privateKey &&
+      "extractable" in privateKey &&
+      privateKey.extractable === false &&
+      candidate.publicKeyJwk &&
+      typeof candidate.publicKeyJwk === "object"
+  );
+}
 
 function getIdentityStorageKey(userId: string): string {
   return `${IDENTITY_KEY_PREFIX}:${userId}`;
@@ -54,8 +81,6 @@ function normalizeToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
 }
 
 async function generateIdentityKeyPair(): Promise<{
-  privateKey: CryptoKey;
-  publicKey: CryptoKey;
   publicKeyJwk: JsonWebKey;
   privateKeyJwk: JsonWebKey;
 }> {
@@ -74,12 +99,7 @@ async function generateIdentityKeyPair(): Promise<{
     webCrypto.subtle.exportKey("jwk", keyPair.privateKey),
   ]);
 
-  return {
-    privateKey: keyPair.privateKey,
-    publicKey: keyPair.publicKey,
-    publicKeyJwk,
-    privateKeyJwk,
-  };
+  return { publicKeyJwk, privateKeyJwk };
 }
 
 async function importPrivateIdentityKey(privateKeyJwk: JsonWebKey): Promise<CryptoKey> {
@@ -91,7 +111,7 @@ async function importPrivateIdentityKey(privateKeyJwk: JsonWebKey): Promise<Cryp
       name: "ECDH",
       namedCurve: "P-256",
     },
-    true,
+    false,
     ["deriveKey"]
   );
 }
@@ -116,27 +136,47 @@ export async function getOrCreateIdentityKeyPair(userId: string): Promise<{
 }> {
   const storage = ensureBrowserStorage();
   const storageKey = getIdentityStorageKey(userId);
-  const stored = storage.getItem(storageKey);
+  const recordKey = getIdentityRecordKey(userId);
+  const stored = await get<unknown>(recordKey, identityKeyStore);
 
-  if (stored) {
-    try {
-      const parsed = JSON.parse(stored) as StoredIdentity;
-      const privateKey = await importPrivateIdentityKey(parsed.privateKeyJwk);
-      return { privateKey, publicKeyJwk: parsed.publicKeyJwk };
-    } catch {
-      storage.removeItem(storageKey);
+  if (stored !== undefined) {
+    if (!isStoredIdentity(stored)) {
+      throw new Error("Stored E2EE identity key is invalid.");
     }
+    return {
+      privateKey: stored.privateKey,
+      publicKeyJwk: stored.publicKeyJwk,
+    };
+  }
+
+  // Migrate existing extractable JWKs once. Remove the plaintext copy only
+  // after IndexedDB confirms that the non-extractable CryptoKey was stored.
+  const legacy = storage.getItem(storageKey);
+  if (legacy) {
+    const parsed = JSON.parse(legacy) as LegacyStoredIdentity;
+    if (!parsed.privateKeyJwk || !parsed.publicKeyJwk) {
+      throw new Error("Legacy E2EE identity key is invalid.");
+    }
+    const privateKey = await importPrivateIdentityKey(parsed.privateKeyJwk);
+    const migrated: StoredIdentity = {
+      privateKey,
+      publicKeyJwk: parsed.publicKeyJwk,
+    };
+    await set(recordKey, migrated, identityKeyStore);
+    storage.removeItem(storageKey);
+    return { privateKey, publicKeyJwk: parsed.publicKeyJwk };
   }
 
   const generated = await generateIdentityKeyPair();
-  const payload: StoredIdentity = {
-    privateKeyJwk: generated.privateKeyJwk,
+  const privateKey = await importPrivateIdentityKey(generated.privateKeyJwk);
+  const identity: StoredIdentity = {
+    privateKey,
     publicKeyJwk: generated.publicKeyJwk,
   };
-  storage.setItem(storageKey, JSON.stringify(payload));
+  await set(recordKey, identity, identityKeyStore);
 
   return {
-    privateKey: generated.privateKey,
+    privateKey,
     publicKeyJwk: generated.publicKeyJwk,
   };
 }
